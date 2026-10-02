@@ -23,9 +23,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsTransit
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -58,7 +60,9 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onRefreshDepartures: () -> Unit,
     onTriggerQuickMonitoring: (durationMinutes: Int, direction: String) -> Unit,
-    onCancelQuickMonitoring: () -> Unit
+    onCancelQuickMonitoring: () -> Unit,
+    onTrainTaken: () -> Unit = {},
+    onResumeSurveillance: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -169,7 +173,9 @@ fun HomeScreen(
                         }
                     },
                     onTriggerQuickMonitoring = onTriggerQuickMonitoring,
-                    onCancelQuickMonitoring = onCancelQuickMonitoring
+                    onCancelQuickMonitoring = onCancelQuickMonitoring,
+                    onTrainTaken = onTrainTaken,
+                    onResumeSurveillance = onResumeSurveillance
                 )
             }
 
@@ -341,18 +347,25 @@ fun SurveillanceControlCard(
     effectiveDirection: CommuteDirection,
     onToggleOverrideDirection: () -> Unit,
     onTriggerQuickMonitoring: (Int, String) -> Unit,
-    onCancelQuickMonitoring: () -> Unit
+    onCancelQuickMonitoring: () -> Unit,
+    onTrainTaken: () -> Unit = {},
+    onResumeSurveillance: () -> Unit = {}
 ) {
     val durationMin = schedule.quickMonitoringDurationMinutes
     val durationLabel = if (durationMin >= 60) "${durationMin / 60}h" else "${durationMin} min"
+    val isPaused = schedule.isPaused()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isMonitoringActive) Color(0xFFE8F5E9) else SurfaceLight
+            containerColor = when {
+                isMonitoringActive -> Color(0xFFE8F5E9)
+                isPaused -> Color(0xFFFFF8E1)
+                else -> SurfaceLight
+            }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isMonitoringActive) 3.dp else 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isMonitoringActive || isPaused) 3.dp else 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -365,34 +378,51 @@ fun SurveillanceControlCard(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(if (isMonitoringActive) SuccessGreen else Color(0xFFE3F2FD)),
+                            .background(
+                                when {
+                                    isMonitoringActive -> SuccessGreen
+                                    isPaused -> Color(0xFFFFB74D)
+                                    else -> Color(0xFFE3F2FD)
+                                }
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (isMonitoringActive) Icons.Default.DirectionsTransit else Icons.Default.LocationOn,
+                            imageVector = when {
+                                isMonitoringActive -> Icons.Default.DirectionsTransit
+                                isPaused -> Icons.Default.PauseCircle
+                                else -> Icons.Default.LocationOn
+                            },
                             contentDescription = null,
-                            tint = if (isMonitoringActive) Color.White else TransilienN,
+                            tint = if (isMonitoringActive || isPaused) Color.White else TransilienN,
                             modifier = Modifier.size(22.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = if (isMonitoringActive) {
-                                if (schedule.isQuickMonitoringActive()) "Surveillance Ponctuelle Active 🟢" else "Surveillance Programmée Active 🟢"
-                            } else {
-                                "Surveillance Géolocalisée"
+                            text = when {
+                                isMonitoringActive -> {
+                                    if (schedule.isQuickMonitoringActive()) "Surveillance Ponctuelle Active 🟢" else "Surveillance Programmée Active 🟢"
+                                }
+                                isPaused -> "Surveillance en pause (Arrivé 🏁)"
+                                else -> "Surveillance Géolocalisée"
                             },
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
-                            color = if (isMonitoringActive) SuccessGreen else TextPrimary
+                            color = when {
+                                isMonitoringActive -> SuccessGreen
+                                isPaused -> Color(0xFFE65100)
+                                else -> TextPrimary
+                            }
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (isMonitoringActive)
-                                "Sens : ${schedule.getActiveDirectionText()} • Fin à ${schedule.getActiveRemainingText() ?: "--:--"}"
-                            else
-                                "📍 $locationLabel • Sens : ${effectiveDirection.label}",
+                            text = when {
+                                isMonitoringActive -> "Sens : ${schedule.getActiveDirectionText()} • Fin à ${schedule.getActiveRemainingText() ?: "--:--"}"
+                                isPaused -> "Reprise auto à ${schedule.getPausedRemainingText() ?: "--:--"} • Sens : ${effectiveDirection.label}"
+                                else -> "📍 $locationLabel • Sens : ${effectiveDirection.label}"
+                            },
                             fontSize = 14.sp,
                             color = TextSecondary
                         )
@@ -403,16 +433,61 @@ fun SurveillanceControlCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             if (isMonitoringActive) {
-                OutlinedButton(
-                    onClick = onCancelQuickMonitoring,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
-                    shape = RoundedCornerShape(10.dp),
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(vertical = 12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Arrêter la surveillance", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    // Bouton "J'ai pris le train / Arrivé" pour couper les alertes immédiatement
+                    Button(
+                        onClick = onTrainTaken,
+                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1.3f),
+                        contentPadding = PaddingValues(vertical = 12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("🚆 Train pris / Arrivé", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    // Bouton secondaire pour stopper la surveillance
+                    OutlinedButton(
+                        onClick = onCancelQuickMonitoring,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(0.9f),
+                        contentPadding = PaddingValues(vertical = 12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Arrêter", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else if (isPaused) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Alertes coupées jusqu'à ${schedule.getPausedRemainingText() ?: "--:--"}",
+                            fontSize = 13.sp,
+                            color = Color(0xFFE65100),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Button(
+                        onClick = onResumeSurveillance,
+                        colors = ButtonDefaults.buttonColors(containerColor = TransilienN),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Reprendre", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             } else {
                 Row(

@@ -31,7 +31,10 @@ import com.google.firebase.messaging.RemoteMessage
 import com.nulltrack.MainActivity
 import com.nulltrack.R
 import com.nulltrack.data.AlertRepository
+import com.nulltrack.data.ScheduleRepository
 import com.nulltrack.data.TrainAlert
+import com.nulltrack.location.DestinationArrivalReceiver
+import com.nulltrack.location.LocationHelper
 
 class NullTrackMessagingService : FirebaseMessagingService() {
 
@@ -52,6 +55,28 @@ class NullTrackMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         Log.d(TAG, "Message FCM reçu : ${remoteMessage.data}")
+
+        val scheduleRepository = ScheduleRepository.getInstance(applicationContext)
+        val schedule = scheduleRepository.schedule.value
+
+        // 1. Si la surveillance est inactive ou en pause, ignorer le message FCM
+        if (!schedule.isMonitoringActiveNow()) {
+            Log.i(TAG, "Message FCM ignoré : surveillance inactive ou en pause.")
+            return
+        }
+
+        // 2. Détection de géolocalisation : si l'utilisateur est arrivé à destination,
+        // suspendre immédiatement la surveillance pour ce trajet et ignorer la notification !
+        val activeDirection = schedule.getActiveDirectionCode()
+        if (schedule.autoStopAtDestination && activeDirection != null) {
+            if (LocationHelper.isArrivedAtDestination(applicationContext, activeDirection)) {
+                Log.i(TAG, "Arrivée à destination ($activeDirection) détectée par géolocalisation ! Mise en pause immédiate.")
+                scheduleRepository.pauseUntilNextCommute(source = "fcm_arrival_check")
+                LocationHelper.unregisterDestinationProximityAlert(applicationContext)
+                sendBroadcast(Intent("com.nulltrack.widget.ACTION_REFRESH").setPackage(packageName))
+                return
+            }
+        }
 
         val data = remoteMessage.data
         val title = remoteMessage.notification?.title ?: data["title"] ?: "⚠️ Train Annulé"
@@ -75,7 +100,7 @@ class NullTrackMessagingService : FirebaseMessagingService() {
         AlertRepository.getInstance(applicationContext).addAlert(alert)
         sendBroadcast(Intent("com.nulltrack.widget.ACTION_REFRESH").setPackage(packageName))
 
-        // 2. Affichage de la notification système haute priorité
+        // 3. Affichage de la notification système haute priorité avec bouton d'action
         showSystemNotification(title, body)
     }
 
@@ -108,6 +133,17 @@ class NullTrackMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Action sur la notification : "J'ai pris le train"
+        val trainTakenIntent = Intent(this, DestinationArrivalReceiver::class.java).apply {
+            action = DestinationArrivalReceiver.ACTION_TRAIN_TAKEN
+        }
+        val trainTakenPendingIntent = PendingIntent.getBroadcast(
+            this,
+            2,
+            trainTakenIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_train)
@@ -119,6 +155,11 @@ class NullTrackMessagingService : FirebaseMessagingService() {
             .setVibrate(longArrayOf(0, 500, 200, 500))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentIntent(pendingIntent)
+            .addAction(
+                R.drawable.ic_notification_train,
+                "🚆 J'ai pris le train",
+                trainTakenPendingIntent
+            )
 
         val notificationId = (System.currentTimeMillis() % 10000).toInt()
         notificationManager.notify(notificationId, notificationBuilder.build())

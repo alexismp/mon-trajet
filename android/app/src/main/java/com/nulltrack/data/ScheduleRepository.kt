@@ -126,6 +126,30 @@ class ScheduleRepository private constructor(private val appContext: Context) {
         saveConfig(current.copy(pausedUntil = pauseIso))
     }
 
+    /**
+     * Met en pause la surveillance jusqu'au début du PROCHAIN trajet prévu :
+     * - Fin du trajet matin -> pause jusqu'au soir (17h00)
+     * - Fin du trajet soir -> pause jusqu'au lendemain matin (07h00)
+     * Coupe les appels API et les notifications côté backend et mobile.
+     */
+    fun pauseUntilNextCommute(source: String = "manual") {
+        val nextIso = _schedule.value.getNextCommuteStartIso()
+        val current = _schedule.value
+        saveConfig(
+            current.copy(
+                pausedUntil = nextIso,
+                quickMonitoringUntil = null,
+                returnCommuteUntil = null
+            )
+        )
+        Log.i(TAG, "Surveillance mise en pause (source: $source) jusqu'au prochain trajet ($nextIso).")
+    }
+
+    fun toggleAutoStopAtDestination(enabled: Boolean) {
+        val current = _schedule.value
+        saveConfig(current.copy(autoStopAtDestination = enabled))
+    }
+
     fun resumeNow() {
         val current = _schedule.value
         saveConfig(current.copy(pausedUntil = null, enabled = true))
@@ -231,6 +255,7 @@ class ScheduleRepository private constructor(private val appContext: Context) {
         val quickDuration = prefs.getInt(KEY_QUICK_MONITORING_DURATION, 60)
         val notifyDelays = prefs.getBoolean(KEY_NOTIFY_DELAYS, true)
         val minDelay = prefs.getInt(KEY_MIN_DELAY_MINUTES, 5)
+        val autoStopAtDestination = prefs.getBoolean(KEY_AUTO_STOP_AT_DESTINATION, true)
 
         val daysString = prefs.getString(KEY_ACTIVE_DAYS, "0,1,2,3,4") ?: "0,1,2,3,4"
 
@@ -258,7 +283,8 @@ class ScheduleRepository private constructor(private val appContext: Context) {
             quickMonitoringDirection = quickMonitoringDirection,
             quickMonitoringDurationMinutes = quickDuration,
             notifyDelays = notifyDelays,
-            minDelayMinutes = minDelay
+            minDelayMinutes = minDelay,
+            autoStopAtDestination = autoStopAtDestination
         )
     }
 
@@ -289,6 +315,7 @@ class ScheduleRepository private constructor(private val appContext: Context) {
             putInt(KEY_QUICK_MONITORING_DURATION, config.quickMonitoringDurationMinutes)
             putBoolean(KEY_NOTIFY_DELAYS, config.notifyDelays)
             putInt(KEY_MIN_DELAY_MINUTES, config.minDelayMinutes)
+            putBoolean(KEY_AUTO_STOP_AT_DESTINATION, config.autoStopAtDestination)
 
             putString(KEY_ACTIVE_DAYS, config.activeDays.joinToString(","))
             apply()
@@ -328,6 +355,7 @@ class ScheduleRepository private constructor(private val appContext: Context) {
         private const val KEY_QUICK_MONITORING_DURATION = "quick_monitoring_duration"
         private const val KEY_NOTIFY_DELAYS = "notify_delays"
         private const val KEY_MIN_DELAY_MINUTES = "min_delay_minutes"
+        private const val KEY_AUTO_STOP_AT_DESTINATION = "auto_stop_at_destination"
         private const val KEY_ACTIVE_DAYS = "active_days"
 
         @Volatile

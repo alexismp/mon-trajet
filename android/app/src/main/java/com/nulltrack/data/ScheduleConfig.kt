@@ -49,7 +49,9 @@ data class ScheduleConfig(
     val quickMonitoringDurationMinutes: Int = 60,
     // Notification des retards en plus des annulations
     val notifyDelays: Boolean = true,
-    val minDelayMinutes: Int = 5
+    val minDelayMinutes: Int = 5,
+    // Arrêt automatique des alertes et requêtes à l'arrivée à destination (Géolocalisation)
+    val autoStopAtDestination: Boolean = true
 ) {
     // Rétrocompatibilité
     val startHour: Int get() = morningStartHour
@@ -269,6 +271,73 @@ data class ScheduleConfig(
     }
 
     /**
+     * Calcule l'horodatage exact (epoch millis) du début du PROCHAIN trajet prévu :
+     * - Si on termine le trajet du matin (ou en journée avant le soir) -> début de la plage du soir (ex: 17h00).
+     * - Si on termine le trajet du soir (ou après la plage du matin sans plage du soir) -> début du prochain jour actif (ex: 07h00 demain).
+     */
+    fun getNextCommuteStartMillis(nowMillis: Long = System.currentTimeMillis()): Long {
+        val tz = TimeZone.getTimeZone("Europe/Paris")
+        val nowCal = Calendar.getInstance(tz).apply { timeInMillis = nowMillis }
+        val currentMinutes = nowCal.get(Calendar.HOUR_OF_DAY) * 60 + nowCal.get(Calendar.MINUTE)
+        val dayOfWeek = (nowCal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // 0=Lundi, ..., 6=Dimanche
+
+        // 1. Si aujourd'hui est un jour actif et qu'on est avant le début du soir
+        if (dayOfWeek in activeDays && eveningEnabled) {
+            val eStartMinutes = eveningStartHour * 60 + eveningStartMinute
+            if (currentMinutes < eStartMinutes) {
+                val todayEvening = (nowCal.clone() as Calendar).apply {
+                    set(Calendar.HOUR_OF_DAY, eveningStartHour)
+                    set(Calendar.MINUTE, eveningStartMinute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                return todayEvening.timeInMillis
+            }
+        }
+
+        // 2. Sinon, chercher le début du prochain jour actif (de demain à +7 jours)
+        for (dayOffset in 1..7) {
+            val checkCal = (nowCal.clone() as Calendar).apply {
+                add(Calendar.DAY_OF_YEAR, dayOffset)
+            }
+            val checkDayOfWeek = (checkCal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+            if (checkDayOfWeek in activeDays) {
+                if (morningEnabled) {
+                    val nextMorning = (checkCal.clone() as Calendar).apply {
+                        set(Calendar.HOUR_OF_DAY, morningStartHour)
+                        set(Calendar.MINUTE, morningStartMinute)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    return nextMorning.timeInMillis
+                } else if (eveningEnabled) {
+                    val nextEvening = (checkCal.clone() as Calendar).apply {
+                        set(Calendar.HOUR_OF_DAY, eveningStartHour)
+                        set(Calendar.MINUTE, eveningStartMinute)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    return nextEvening.timeInMillis
+                }
+            }
+        }
+
+        // Par défaut si aucun créneau actif trouvé : pause de 8 heures
+        return nowMillis + 8 * 3600 * 1000L
+    }
+
+    /**
+     * Retourne la date ISO UTC de la reprise au prochain créneau (pour Firestore et paused_until).
+     */
+    fun getNextCommuteStartIso(nowMillis: Long = System.currentTimeMillis()): String {
+        val targetMillis = getNextCommuteStartMillis(nowMillis)
+        val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        return isoFormat.format(Date(targetMillis))
+    }
+
+    /**
      * Libellé lisible de la direction actuellement surveillée en mode ponctuel ou programmé.
      */
     fun getActiveDirectionText(): String {
@@ -338,7 +407,8 @@ data class ScheduleConfig(
             "quick_monitoring_direction" to quickMonitoringDirection,
             "quick_monitoring_duration_minutes" to quickMonitoringDurationMinutes,
             "notify_delays" to notifyDelays,
-            "min_delay_minutes" to minDelayMinutes
+            "min_delay_minutes" to minDelayMinutes,
+            "auto_stop_at_destination" to autoStopAtDestination
         )
     }
 
@@ -374,6 +444,7 @@ data class ScheduleConfig(
             val quickDuration = (map["quick_monitoring_duration_minutes"] as? Number)?.toInt() ?: 60
             val notifyDelays = (map["notify_delays"] as? Boolean) ?: true
             val minDelayMinutes = (map["min_delay_minutes"] as? Number)?.toInt() ?: 5
+            val autoStopAtDestination = (map["auto_stop_at_destination"] as? Boolean) ?: true
 
             return ScheduleConfig(
                 enabled = enabled,
@@ -395,7 +466,8 @@ data class ScheduleConfig(
                 quickMonitoringDirection = quickMonitoringDirection,
                 quickMonitoringDurationMinutes = quickDuration,
                 notifyDelays = notifyDelays,
-                minDelayMinutes = minDelayMinutes
+                minDelayMinutes = minDelayMinutes,
+                autoStopAtDestination = autoStopAtDestination
             )
         }
 

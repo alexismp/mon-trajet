@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
                     onTriggerQuickMonitoring = { duration, direction ->
                         scheduleRepository.resumeNow()
                         scheduleRepository.triggerQuickMonitoring(duration, direction)
+                        LocationHelper.registerDestinationProximityAlert(applicationContext, direction)
                         departuresRepository.refresh(force = true)
                         com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
                         val dirLabel = if (direction == "TO_PARIS") "Meudon ➔ Paris" else "Paris ➔ Meudon"
@@ -130,16 +131,31 @@ class MainActivity : ComponentActivity() {
                         ).show()
                     },
                     onCancelQuickMonitoring = {
-                        scheduleRepository.cancelQuickMonitoring()
-                        if (scheduleRepository.schedule.value.isWindowActiveNow()) {
-                            scheduleRepository.pauseForToday()
-                        }
+                        scheduleRepository.pauseUntilNextCommute(source = "app_cancel")
+                        LocationHelper.unregisterDestinationProximityAlert(applicationContext)
                         com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
                         Toast.makeText(
                             this@MainActivity,
-                            "Surveillance désactivée",
+                            "Surveillance mise en pause jusqu'au prochain trajet",
                             Toast.LENGTH_SHORT
                         ).show()
+                    },
+                    onTrainTaken = {
+                        scheduleRepository.pauseUntilNextCommute(source = "app_train_taken")
+                        LocationHelper.unregisterDestinationProximityAlert(applicationContext)
+                        com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+                        val remainingText = scheduleRepository.schedule.value.getPausedRemainingText() ?: "votre prochain trajet"
+                        Toast.makeText(
+                            this@MainActivity,
+                            "🚆 Bon voyage ! Surveillance et alertes coupées jusqu'à $remainingText",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    },
+                    onResumeSurveillance = {
+                        scheduleRepository.resumeNow()
+                        com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+                        departuresRepository.refresh(force = true)
+                        Toast.makeText(this@MainActivity, "Surveillance reprise", Toast.LENGTH_SHORT).show()
                     }
                 )
 
@@ -186,7 +202,29 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        val isMonitoringActive = scheduleRepository.schedule.value.isMonitoringActiveNow()
+        var isMonitoringActive = scheduleRepository.schedule.value.isMonitoringActiveNow()
+        val schedule = scheduleRepository.schedule.value
+
+        // Vérification d'arrivée à destination par géolocalisation si surveillance active
+        val activeDir = schedule.getActiveDirectionCode()
+        if (isMonitoringActive && schedule.autoStopAtDestination && activeDir != null) {
+            if (LocationHelper.isArrivedAtDestination(applicationContext, activeDir)) {
+                Log.i(TAG, "🏁 Arrivée à destination ($activeDir) détectée au retour au premier plan !")
+                scheduleRepository.pauseUntilNextCommute(source = "app_resume_arrival_check")
+                LocationHelper.unregisterDestinationProximityAlert(applicationContext)
+                isMonitoringActive = false
+                val destLabel = if (activeDir == "TO_PARIS") "Paris-Montparnasse" else "Meudon"
+                val remainingText = scheduleRepository.schedule.value.getPausedRemainingText() ?: "votre prochain trajet"
+                Toast.makeText(
+                    this,
+                    "🏁 Arrivé à $destLabel ! Surveillance coupée jusqu'à $remainingText.",
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                LocationHelper.registerDestinationProximityAlert(applicationContext, activeDir)
+            }
+        }
+
         Log.d(TAG, "MainActivity onResume (surveillance active: $isMonitoringActive)")
         departuresRepository.refresh(force = isMonitoringActive)
         statsRepository.refresh()

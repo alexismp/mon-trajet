@@ -63,6 +63,7 @@ _in_memory_schedule = {
     "quick_monitoring_duration_minutes": 60,
     "notify_delays": True,
     "min_delay_minutes": 5,
+    "auto_stop_at_destination": True,
     "last_check_timestamp": 0,
 }
 

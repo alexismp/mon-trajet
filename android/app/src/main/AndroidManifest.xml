@@ -50,6 +50,16 @@
                 android:resource="@xml/nulltrack_widget_info" />
         </receiver>
 
+        <!-- Récepteur d'arrivée à destination par géolocalisation & action Train Pris -->
+        <receiver
+            android:name=".location.DestinationArrivalReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.nulltrack.location.ACTION_DESTINATION_ARRIVED" />
+                <action android:name="com.nulltrack.location.ACTION_TRAIN_TAKEN" />
+            </intent-filter>
+        </receiver>
+
         <!-- Canal de notification par défaut pour Firebase -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

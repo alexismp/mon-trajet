@@ -68,11 +68,9 @@ class NullTrackWidgetProvider : AppWidgetProvider() {
                 val current = repository.schedule.value
 
                 if (current.isMonitoringActiveNow()) {
-                    // Arrêt de la surveillance
-                    repository.cancelQuickMonitoring()
-                    if (current.isWindowActiveNow()) {
-                        repository.pauseForToday()
-                    }
+                    // Arrêt de la surveillance jusqu'au prochain trajet
+                    repository.pauseUntilNextCommute(source = "widget")
+                    LocationHelper.unregisterDestinationProximityAlert(context)
                     updateAllWidgets(context)
                     pendingResult.finish()
                 } else {
@@ -87,6 +85,11 @@ class NullTrackWidgetProvider : AppWidgetProvider() {
                         direction = detection.direction.code,
                         source = "widget"
                     )
+
+                    // Enregistrement de la Proximity Alert pour arrêt automatique à l'arrivée
+                    if (current.autoStopAtDestination) {
+                        LocationHelper.registerDestinationProximityAlert(context, detection.direction.code)
+                    }
 
                     // 1. Mise à jour immédiate du statut visuel du widget
                     updateAllWidgets(context)
@@ -123,7 +126,21 @@ class NullTrackWidgetProvider : AppWidgetProvider() {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val thisWidget = ComponentName(context, NullTrackWidgetProvider::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
-            val schedule = ScheduleRepository.getInstance(context).schedule.value
+            val repository = ScheduleRepository.getInstance(context)
+            var schedule = repository.schedule.value
+
+            // Vérification d'arrivée à destination par géolocalisation si surveillance active
+            if (schedule.isMonitoringActiveNow() && schedule.autoStopAtDestination) {
+                val activeDir = schedule.getActiveDirectionCode()
+                if (activeDir != null && LocationHelper.isArrivedAtDestination(context, activeDir)) {
+                    Log.i(TAG, "Arrivée à destination ($activeDir) détectée lors de la mise à jour des widgets !")
+                    repository.pauseUntilNextCommute(source = "widget_arrival_check")
+                    LocationHelper.unregisterDestinationProximityAlert(context)
+                    schedule = repository.schedule.value
+                } else if (activeDir != null) {
+                    LocationHelper.registerDestinationProximityAlert(context, activeDir)
+                }
+            }
 
             for (appWidgetId in appWidgetIds) {
                 updateWidget(context, appWidgetManager, appWidgetId, schedule)

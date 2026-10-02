@@ -89,6 +89,7 @@ fun SettingsSheet(
     var frequencyMinutes by remember(schedule) { mutableStateOf(schedule.frequencyMinutes) }
     var quickDuration by remember(schedule) { mutableStateOf(schedule.quickMonitoringDurationMinutes) }
     var notifyDelays by remember(schedule) { mutableStateOf(schedule.notifyDelays) }
+    var autoStopAtDestination by remember(schedule) { mutableStateOf(schedule.autoStopAtDestination) }
 
     var showHistorySection by remember { mutableStateOf(false) }
 
@@ -537,6 +538,46 @@ fun SettingsSheet(
                 }
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // ==========================================
+            // ARRÊT AUTOMATIQUE À DESTINATION (GPS)
+            // ==========================================
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "🏁 Arrêt auto à destination (GPS)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Coupe automatiquement les alertes et les appels API dès votre arrivée à Paris ou à Meudon",
+                            fontSize = 13.sp,
+                            color = TextSecondary,
+                            lineHeight = 18.sp
+                        )
+                    }
+                    Switch(
+                        checked = autoStopAtDestination,
+                        onCheckedChange = { autoStopAtDestination = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = TransilienN)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(18.dp))
 
             // ==========================================
@@ -885,7 +926,8 @@ fun SettingsSheet(
                         activeDays = activeDays,
                         frequencyMinutes = frequencyMinutes,
                         quickMonitoringDurationMinutes = quickDuration,
-                        notifyDelays = notifyDelays
+                        notifyDelays = notifyDelays,
+                        autoStopAtDestination = autoStopAtDestination
                     )
                     onSaveSchedule(updated)
                     onDismiss()
