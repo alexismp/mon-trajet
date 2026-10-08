@@ -1,4 +1,4 @@
-package com.nulltrack.data
+package com.montrajet.data
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -182,7 +182,7 @@ class StatsRepository private constructor(private val appContext: Context) {
 
     companion object {
         private const val TAG = "StatsRepository"
-        private const val PREFS_NAME = "nulltrack_stats_prefs"
+        private const val PREFS_NAME = "montrajet_stats_prefs"
         private const val COLLECTION_STATS = "settings"
         private const val DOC_SUMMARY = "stats"
 

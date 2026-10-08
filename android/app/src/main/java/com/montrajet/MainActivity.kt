@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack
+package com.montrajet
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -40,16 +40,16 @@ import androidx.compose.runtime.setValue
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessaging
-import com.nulltrack.data.AlertRepository
-import com.nulltrack.data.DeparturesRepository
-import com.nulltrack.data.ScheduleRepository
-import com.nulltrack.data.StatsRepository
-import com.nulltrack.data.TrainAlert
-import com.nulltrack.location.LocationHelper
-import com.nulltrack.service.NullTrackMessagingService
-import com.nulltrack.ui.HomeScreen
-import com.nulltrack.ui.SettingsSheet
-import com.nulltrack.ui.theme.NullTrackTheme
+import com.montrajet.data.AlertRepository
+import com.montrajet.data.DeparturesRepository
+import com.montrajet.data.ScheduleRepository
+import com.montrajet.data.StatsRepository
+import com.montrajet.data.TrainAlert
+import com.montrajet.location.LocationHelper
+import com.montrajet.service.MonTrajetMessagingService
+import com.montrajet.ui.HomeScreen
+import com.montrajet.ui.SettingsSheet
+import com.montrajet.ui.theme.MonTrajetTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
 
         if (fineGranted || coarseGranted) {
             Log.d(TAG, "Permission localisation accordée pour détection du sens de trajet")
-            com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+            com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
         }
         if (!notifGranted) {
             Toast.makeText(
@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
         subscribeToFCMTopic()
 
         setContent {
-            NullTrackTheme {
+            MonTrajetTheme {
                 val alerts by repository.alerts.collectAsState()
                 val schedule by scheduleRepository.schedule.collectAsState()
                 val departures by departuresRepository.departures.collectAsState()
@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
                         scheduleRepository.triggerQuickMonitoring(duration, direction)
                         LocationHelper.registerDestinationProximityAlert(applicationContext, direction)
                         departuresRepository.refresh(force = true)
-                        com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+                        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
                         val dirLabel = if (direction == "TO_PARIS") "Meudon ➔ Paris" else "Paris ➔ Meudon"
                         Toast.makeText(
                             this@MainActivity,
@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
                     onCancelQuickMonitoring = {
                         scheduleRepository.pauseUntilNextCommute(source = "app_cancel")
                         LocationHelper.unregisterDestinationProximityAlert(applicationContext)
-                        com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+                        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
                         Toast.makeText(
                             this@MainActivity,
                             "Surveillance mise en pause jusqu'au prochain trajet",
@@ -143,7 +143,7 @@ class MainActivity : ComponentActivity() {
                     onTrainTaken = {
                         scheduleRepository.pauseUntilNextCommute(source = "app_train_taken")
                         LocationHelper.unregisterDestinationProximityAlert(applicationContext)
-                        com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+                        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
                         val remainingText = scheduleRepository.schedule.value.getPausedRemainingText() ?: "votre prochain trajet"
                         Toast.makeText(
                             this@MainActivity,
@@ -153,7 +153,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onResumeSurveillance = {
                         scheduleRepository.resumeNow()
-                        com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+                        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
                         departuresRepository.refresh(force = true)
                         Toast.makeText(this@MainActivity, "Surveillance reprise", Toast.LENGTH_SHORT).show()
                     }
@@ -196,7 +196,7 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(EXTRA_OPEN_DEPARTURES, false) == true) {
             val isMonitoringActive = scheduleRepository.schedule.value.isMonitoringActiveNow()
             departuresRepository.refresh(force = isMonitoringActive)
-            com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+            com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
         }
     }
 
@@ -228,7 +228,7 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "MainActivity onResume (surveillance active: $isMonitoringActive)")
         departuresRepository.refresh(force = isMonitoringActive)
         statsRepository.refresh()
-        com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(applicationContext)
+        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
     }
 
     private fun checkAppPermissions() {
@@ -259,11 +259,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun subscribeToFCMTopic() {
-        FirebaseMessaging.getInstance().subscribeToTopic(NullTrackMessagingService.TOPIC_NAME)
+        FirebaseMessaging.getInstance().subscribeToTopic(MonTrajetMessagingService.TOPIC_NAME)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     isSubscribedToTopic = true
-                    Log.d(TAG, "Abonné au topic ${NullTrackMessagingService.TOPIC_NAME}")
+                    Log.d(TAG, "Abonné au topic ${MonTrajetMessagingService.TOPIC_NAME}")
                 } else {
                     isSubscribedToTopic = false
                     Log.e(TAG, "Échec abonnement topic", task.exception)
@@ -287,7 +287,7 @@ class MainActivity : ComponentActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                NullTrackMessagingService.CHANNEL_ID,
+                MonTrajetMessagingService.CHANNEL_ID,
                 "Alertes Trains Annulés",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
@@ -309,7 +309,7 @@ class MainActivity : ComponentActivity() {
         )
 
         val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        val builder = NotificationCompat.Builder(this, NullTrackMessagingService.CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, MonTrajetMessagingService.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("⚠️ Test Alerte : ROPO (08:12)")
             .setContentText("Le train de 08:12 au départ de Meudon vers Paris-Montparnasse est supprimé.")

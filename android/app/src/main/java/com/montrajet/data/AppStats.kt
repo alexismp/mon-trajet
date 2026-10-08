@@ -1,4 +1,4 @@
-package com.nulltrack.data
+package com.montrajet.data
 
 data class AppStats(
     val totalManualSurveillances: Int = 0,

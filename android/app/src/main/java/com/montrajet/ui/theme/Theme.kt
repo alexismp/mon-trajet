@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.ui.theme
+package com.montrajet.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -35,7 +35,7 @@ private val LightColorScheme = lightColorScheme(
     onSurface = TextPrimary
 )
 
-val NullTrackTypography = Typography(
+val MonTrajetTypography = Typography(
     titleLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Bold,
@@ -87,10 +87,10 @@ val NullTrackTypography = Typography(
 )
 
 @Composable
-fun NullTrackTheme(content: @Composable () -> Unit) {
+fun MonTrajetTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = LightColorScheme,
-        typography = NullTrackTypography,
+        typography = MonTrajetTypography,
         content = content
     )
 }

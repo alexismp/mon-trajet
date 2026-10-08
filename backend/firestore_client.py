@@ -34,7 +34,7 @@ from config import (
     START_MINUTE,
 )
 
-logger = logging.getLogger("null-track.firestore")
+logger = logging.getLogger("mon-trajet.firestore")
 
 _db = None
 _in_memory_cache = set()

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.widget
+package com.montrajet.widget
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -27,12 +27,12 @@ import android.graphics.Color
 import android.os.Build
 import android.util.Log
 import android.widget.RemoteViews
-import com.nulltrack.MainActivity
-import com.nulltrack.R
-import com.nulltrack.data.DeparturesRepository
-import com.nulltrack.data.ScheduleConfig
-import com.nulltrack.data.ScheduleRepository
-import com.nulltrack.location.LocationHelper
+import com.montrajet.MainActivity
+import com.montrajet.R
+import com.montrajet.data.DeparturesRepository
+import com.montrajet.data.ScheduleConfig
+import com.montrajet.data.ScheduleRepository
+import com.montrajet.location.LocationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,7 +41,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-class NullTrackWidgetProvider : AppWidgetProvider() {
+class MonTrajetWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(
         context: Context,
@@ -117,14 +117,14 @@ class NullTrackWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        private const val TAG = "NullTrackWidget"
-        const val ACTION_TOGGLE_MONITORING = "com.nulltrack.widget.ACTION_TOGGLE_MONITORING"
-        const val ACTION_REFRESH = "com.nulltrack.widget.ACTION_REFRESH"
+        private const val TAG = "MonTrajetWidget"
+        const val ACTION_TOGGLE_MONITORING = "com.montrajet.widget.ACTION_TOGGLE_MONITORING"
+        const val ACTION_REFRESH = "com.montrajet.widget.ACTION_REFRESH"
         private const val ALARM_REQUEST_CODE = 9001
 
         fun updateAllWidgets(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
-            val thisWidget = ComponentName(context, NullTrackWidgetProvider::class.java)
+            val thisWidget = ComponentName(context, MonTrajetWidgetProvider::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
             val repository = ScheduleRepository.getInstance(context)
             var schedule = repository.schedule.value
@@ -152,7 +152,7 @@ class NullTrackWidgetProvider : AppWidgetProvider() {
         fun scheduleNextTransitionAlarm(context: Context, schedule: ScheduleConfig) {
             try {
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-                val intent = Intent(context, NullTrackWidgetProvider::class.java).apply {
+                val intent = Intent(context, MonTrajetWidgetProvider::class.java).apply {
                     action = ACTION_REFRESH
                 }
                 val pendingIntent = PendingIntent.getBroadcast(
@@ -217,7 +217,7 @@ class NullTrackWidgetProvider : AppWidgetProvider() {
             schedule: ScheduleConfig
         ) {
             try {
-                val views = RemoteViews(context.packageName, R.layout.widget_nulltrack)
+                val views = RemoteViews(context.packageName, R.layout.widget_montrajet)
                 val isActive = schedule.isMonitoringActiveNow()
 
                 val departuresRepo = DeparturesRepository.getInstance(context)
@@ -271,7 +271,7 @@ class NullTrackWidgetProvider : AppWidgetProvider() {
                     )
                 }
 
-                val toggleIntent = Intent(context, NullTrackWidgetProvider::class.java).apply {
+                val toggleIntent = Intent(context, MonTrajetWidgetProvider::class.java).apply {
                     action = ACTION_TOGGLE_MONITORING
                 }
                 val togglePendingIntent = PendingIntent.getBroadcast(

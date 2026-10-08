@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.ui.theme
+package com.montrajet.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

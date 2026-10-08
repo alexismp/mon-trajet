@@ -9,7 +9,7 @@
     android:maxResizeWidth="512dp"
     android:maxResizeHeight="250dp"
     android:updatePeriodMillis="1800000"
-    android:initialLayout="@layout/widget_nulltrack"
+    android:initialLayout="@layout/widget_montrajet"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:description="@string/widget_description" />

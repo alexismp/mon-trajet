@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.data
+package com.montrajet.data
 
 enum class DepartureStatus {
     ON_TIME,

@@ -22,11 +22,11 @@ if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "(unset)" ]; then
     PROJECT_ID="alexismp-runner"
 fi
 REGION=${GCP_REGION:-"europe-west1"}
-SERVICE_NAME="null-track-monitor"
-SCHEDULER_JOB_NAME="null-track-scheduler"
+SERVICE_NAME="mon-trajet-monitor"
+SCHEDULER_JOB_NAME="mon-trajet-scheduler"
 
 echo "=========================================================="
-echo " 🚀 Déploiement de Null-Track (Cloud Run functions) sur GCP"
+echo " 🚀 Déploiement de Mon trajet (Cloud Run functions) sur GCP"
 echo "=========================================================="
 echo "Projet GCP : ${PROJECT_ID}"
 echo "Région     : ${REGION}"
@@ -62,13 +62,13 @@ if [ -z "$ADMIN_SECRET_KEY" ]; then
 fi
 
 # 3. Compte de service dédié pour Cloud Scheduler (Authentification OIDC)
-SCHEDULER_SA_NAME="nulltrack-scheduler-sa"
+SCHEDULER_SA_NAME="montrajet-scheduler-sa"
 SCHEDULER_SA="${SCHEDULER_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 echo "🔐 Configuration du compte de service pour Cloud Scheduler (${SCHEDULER_SA})..."
 if ! gcloud iam service-accounts describe "${SCHEDULER_SA}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
     gcloud iam service-accounts create "${SCHEDULER_SA_NAME}" \
-        --display-name="NullTrack Cloud Scheduler Invoker" \
+        --display-name="MonTrajet Cloud Scheduler Invoker" \
         --project="${PROJECT_ID}" || true
 fi
 

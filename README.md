@@ -1,10 +1,10 @@
-# 🚆 Null-Track — Surveillance & Alertes Transilien Ligne N
+# 🚆 Mon trajet — Surveillance & Alertes Transilien Ligne N
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 ![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Cloud%20Run-brightgreen.svg)
 ![Transilien](https://img.shields.io/badge/Transilien-Ligne%20N-00A5DE.svg)
 
-**Null-Track** est un système intelligent et temps réel d'alerte et de surveillance pour les usagers de la **Ligne N du Transilien** (Gare de Meudon ⇄ Paris-Montparnasse / Banlieue).
+**Mon trajet** est un système intelligent et temps réel d'alerte et de surveillance pour les usagers de la **Ligne N du Transilien** (Gare de Meudon ⇄ Paris-Montparnasse / Banlieue).
 
 Il combine un backend serverless sur Google Cloud, une application Android moderne en Jetpack Compose, et un widget d'écran d'accueil compact synchronisé en permanence.
 
@@ -59,7 +59,7 @@ flowchart TD
 ## 📁 Structure du dépôt
 
 ```text
-null-track/
+mon-trajet/
 ├── backend/
 │   ├── config.py              # Paramètres par défaut, gares, filtres & horaires
 │   ├── monitor.py             # Appels API PRIM (SIRI Lite), détection retards et annulations
@@ -71,7 +71,7 @@ null-track/
 │   └── .env.example           # Variables d'environnement locales
 ├── android/
 │   ├── app/
-│   │   ├── src/main/java/com/nulltrack/
+│   │   ├── src/main/java/com/montrajet/
 │   │   │   ├── MainActivity.kt                  # Activité principale & gestion des intents
 │   │   │   ├── data/
 │   │   │   │   ├── DeparturesRepository.kt      # Dépôt des départs réels (cache local & synchro)
@@ -80,11 +80,11 @@ null-track/
 │   │   │   │   ├── ScheduleConfig.kt            # Modèle de configuration horaire
 │   │   │   │   └── TrainDeparture.kt            # Modèle des trains et statuts
 │   │   │   ├── widget/
-│   │   │   │   └── NullTrackWidgetProvider.kt   # Fournisseur du widget Android 2x1
+│   │   │   │   └── MonTrajetWidgetProvider.kt   # Fournisseur du widget Android 2x1
 │   │   │   ├── location/
 │   │   │   │   └── LocationHelper.kt            # Détection de direction selon la position
 │   │   │   ├── service/
-│   │   │   │   └── NullTrackMessagingService.kt # Réception push FCM en arrière-plan
+│   │   │   │   └── MonTrajetMessagingService.kt # Réception push FCM en arrière-plan
 │   │   │   └── ui/                              # Interface déclarative Compose (Material 3)
 │   │   └── build.gradle.kts
 │   ├── gradlew                                  # Wrapper Gradle pour compilation CLI
@@ -129,7 +129,7 @@ Le Cloud Scheduler interroge l'endpoint du service toutes les 3 minutes. Les req
 
 ### 3. Compilation et Installation de l'application Android
 
-1. Téléchargez votre fichier `google-services.json` depuis la console Firebase (package : `com.nulltrack`).
+1. Téléchargez votre fichier `google-services.json` depuis la console Firebase (package : `com.montrajet`).
 2. Placez-le dans `android/app/google-services.json`.
 3. Configurez l'URL de votre backend dans `android/local.properties` (non suivi par Git) :
    ```properties

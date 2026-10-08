@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.data
+package com.montrajet.data
 
 import android.content.Context
 import android.content.Intent
@@ -218,7 +218,7 @@ class ScheduleRepository private constructor(private val appContext: Context) {
 
     private fun notifyWidgetUpdate() {
         try {
-            com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(appContext)
+            com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(appContext)
         } catch (e: Exception) {
             // ignore
         }
@@ -324,10 +324,10 @@ class ScheduleRepository private constructor(private val appContext: Context) {
 
     companion object {
         private const val TAG = "ScheduleRepository"
-        private const val PREFS_NAME = "null_track_schedule_prefs"
+        private const val PREFS_NAME = "montrajet_schedule_prefs"
         private const val SETTINGS_COLLECTION = "settings"
         private const val SCHEDULE_DOC = "monitoring_schedule"
-        const val ACTION_WIDGET_REFRESH = "com.nulltrack.widget.ACTION_REFRESH"
+        const val ACTION_WIDGET_REFRESH = "com.montrajet.widget.ACTION_REFRESH"
 
         private const val KEY_ENABLED = "enabled"
         private const val KEY_START_HOUR = "start_hour"

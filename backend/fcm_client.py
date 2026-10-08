@@ -25,7 +25,7 @@ except ImportError:
 
 from config import FCM_TOPIC, FIREBASE_PROJECT_ID
 
-logger = logging.getLogger("null-track.fcm")
+logger = logging.getLogger("mon-trajet.fcm")
 
 _firebase_initialized = False
 

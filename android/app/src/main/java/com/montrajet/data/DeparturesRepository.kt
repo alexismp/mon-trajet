@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.data
+package com.montrajet.data
 
 import android.content.Context
 import android.content.Intent
@@ -213,8 +213,8 @@ class DeparturesRepository private constructor(private val context: Context) {
                 connectTimeout = 6000
                 readTimeout = 8000
                 // 1. Clé secrète d'application (si définie dans local.properties)
-                if (com.nulltrack.BuildConfig.BACKEND_API_KEY.isNotBlank()) {
-                    setRequestProperty("X-API-Key", com.nulltrack.BuildConfig.BACKEND_API_KEY)
+                if (com.montrajet.BuildConfig.BACKEND_API_KEY.isNotBlank()) {
+                    setRequestProperty("X-API-Key", com.montrajet.BuildConfig.BACKEND_API_KEY)
                 }
             }
 
@@ -290,9 +290,9 @@ class DeparturesRepository private constructor(private val context: Context) {
 
     private fun notifyWidgetUpdate() {
         try {
-            com.nulltrack.widget.NullTrackWidgetProvider.updateAllWidgets(context)
+            com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(context)
         } catch (e: Exception) {
-            context.sendBroadcast(Intent("com.nulltrack.widget.ACTION_REFRESH").setPackage(context.packageName))
+            context.sendBroadcast(Intent("com.montrajet.widget.ACTION_REFRESH").setPackage(context.packageName))
         }
     }
 
@@ -317,7 +317,7 @@ class DeparturesRepository private constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "DeparturesRepository"
-        private const val PREFS_NAME = "null_track_departures_cache"
+        private const val PREFS_NAME = "montrajet_departures_cache"
         private const val KEY_DEPARTURES_JSON = "departures_json"
         private const val KEY_LAST_UPDATED = "last_updated"
         private const val COLLECTION_LIVE_STATUS = "live_status"
@@ -325,7 +325,7 @@ class DeparturesRepository private constructor(private val context: Context) {
         private const val CLIENT_CACHE_TTL_MS = 60_000L // 60 secondes de cache local
 
         private fun getBackendDeparturesUrl(): String {
-            val base = com.nulltrack.BuildConfig.BACKEND_URL.trim().trimEnd('/')
+            val base = com.montrajet.BuildConfig.BACKEND_URL.trim().trimEnd('/')
             return if (base.isNotBlank()) "$base/departures" else ""
         }
 

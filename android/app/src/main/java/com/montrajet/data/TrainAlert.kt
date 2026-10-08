@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.data
+package com.montrajet.data
 
 data class TrainAlert(
     val id: String,

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.service
+package com.montrajet.service
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -28,15 +28,15 @@ import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.nulltrack.MainActivity
-import com.nulltrack.R
-import com.nulltrack.data.AlertRepository
-import com.nulltrack.data.ScheduleRepository
-import com.nulltrack.data.TrainAlert
-import com.nulltrack.location.DestinationArrivalReceiver
-import com.nulltrack.location.LocationHelper
+import com.montrajet.MainActivity
+import com.montrajet.R
+import com.montrajet.data.AlertRepository
+import com.montrajet.data.ScheduleRepository
+import com.montrajet.data.TrainAlert
+import com.montrajet.location.DestinationArrivalReceiver
+import com.montrajet.location.LocationHelper
 
-class NullTrackMessagingService : FirebaseMessagingService() {
+class MonTrajetMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
@@ -73,7 +73,7 @@ class NullTrackMessagingService : FirebaseMessagingService() {
                 Log.i(TAG, "Arrivée à destination ($activeDirection) détectée par géolocalisation ! Mise en pause immédiate.")
                 scheduleRepository.pauseUntilNextCommute(source = "fcm_arrival_check")
                 LocationHelper.unregisterDestinationProximityAlert(applicationContext)
-                sendBroadcast(Intent("com.nulltrack.widget.ACTION_REFRESH").setPackage(packageName))
+                sendBroadcast(Intent("com.montrajet.widget.ACTION_REFRESH").setPackage(packageName))
                 return
             }
         }
@@ -98,7 +98,7 @@ class NullTrackMessagingService : FirebaseMessagingService() {
             status = status
         )
         AlertRepository.getInstance(applicationContext).addAlert(alert)
-        sendBroadcast(Intent("com.nulltrack.widget.ACTION_REFRESH").setPackage(packageName))
+        sendBroadcast(Intent("com.montrajet.widget.ACTION_REFRESH").setPackage(packageName))
 
         // 3. Affichage de la notification système haute priorité avec bouton d'action
         showSystemNotification(title, body)
@@ -166,7 +166,7 @@ class NullTrackMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
-        private const val TAG = "NullTrackFCM"
+        private const val TAG = "MonTrajetFCM"
         const val CHANNEL_ID = "TRAIN_ALERTS"
         const val TOPIC_NAME = "trains_meudon_montparnasse"
     }

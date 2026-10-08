@@ -37,11 +37,11 @@ val backendApiKey = localProperties.getProperty("backend.api.key")
     ?: ""
 
 android {
-    namespace = "com.nulltrack"
+    namespace = "com.montrajet"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.nulltrack"
+        applicationId = "com.montrajet"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

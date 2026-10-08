@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.ui
+package com.montrajet.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -37,9 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.nulltrack.data.DepartureStatus
-import com.nulltrack.data.TrainDeparture
-import com.nulltrack.ui.theme.*
+import com.montrajet.data.DepartureStatus
+import com.montrajet.data.TrainDeparture
+import com.montrajet.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

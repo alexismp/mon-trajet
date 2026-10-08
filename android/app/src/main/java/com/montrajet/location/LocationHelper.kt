@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.location
+package com.montrajet.location
 
 import android.Manifest
 import android.app.PendingIntent

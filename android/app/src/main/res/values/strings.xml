@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Null-Track</string>
+    <string name="app_name">Mon trajet</string>
     <string name="channel_name">Alertes Trains Annulés</string>
     <string name="channel_description">Notifications immédiates lors de l\'annulation ou du retard d\'un train de la Ligne N</string>
     <string name="widget_description">Activation rapide de la surveillance des trains selon votre position géographique</string>

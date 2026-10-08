@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.location
+package com.montrajet.location
 
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -25,8 +25,8 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
-import com.nulltrack.data.ScheduleRepository
-import com.nulltrack.widget.NullTrackWidgetProvider
+import com.montrajet.data.ScheduleRepository
+import com.montrajet.widget.MonTrajetWidgetProvider
 
 /**
  * Récepteur d'événements pour l'arrivée à destination par géolocalisation
@@ -74,7 +74,7 @@ class DestinationArrivalReceiver : BroadcastReceiver() {
                 notifManager?.cancelAll()
 
                 // 4. Met à jour les widgets
-                NullTrackWidgetProvider.updateAllWidgets(context)
+                MonTrajetWidgetProvider.updateAllWidgets(context)
 
                 val destLabel = if (direction == "TO_PARIS") "Paris-Montparnasse" else "Meudon"
                 val remainingText = repository.schedule.value.getPausedRemainingText() ?: "votre prochain trajet"
@@ -95,7 +95,7 @@ class DestinationArrivalReceiver : BroadcastReceiver() {
                 notifManager?.cancelAll()
 
                 // 4. Met à jour les widgets
-                NullTrackWidgetProvider.updateAllWidgets(context)
+                MonTrajetWidgetProvider.updateAllWidgets(context)
 
                 val remainingText = repository.schedule.value.getPausedRemainingText() ?: "votre prochain trajet"
                 showToast(context, "🚆 Bon voyage ! Surveillance et alertes suspendues jusqu'à $remainingText.")
@@ -111,8 +111,8 @@ class DestinationArrivalReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "DestinationArrival"
-        const val ACTION_DESTINATION_ARRIVED = "com.nulltrack.location.ACTION_DESTINATION_ARRIVED"
-        const val ACTION_TRAIN_TAKEN = "com.nulltrack.location.ACTION_TRAIN_TAKEN"
+        const val ACTION_DESTINATION_ARRIVED = "com.montrajet.location.ACTION_DESTINATION_ARRIVED"
+        const val ACTION_TRAIN_TAKEN = "com.montrajet.location.ACTION_TRAIN_TAKEN"
         const val EXTRA_DIRECTION = "extra_direction"
     }
 }

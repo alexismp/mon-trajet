@@ -29,5 +29,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NullTrack"
+rootProject.name = "MonTrajet"
 include(":app")

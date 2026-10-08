@@ -40,7 +40,7 @@ from config import (
     WINDOW_START,
 )
 
-logger = logging.getLogger("null-track.monitor")
+logger = logging.getLogger("mon-trajet.monitor")
 
 
 def is_within_monitoring_window(

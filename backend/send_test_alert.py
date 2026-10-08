@@ -103,7 +103,7 @@ def send_remote(remote_url, args):
     print("=" * 60)
 
     try:
-        headers = {"User-Agent": "NullTrack-CLI/1.0"}
+        headers = {"User-Agent": "MonTrajet-CLI/1.0"}
         admin_key = args.admin_key or os.getenv("ADMIN_SECRET_KEY")
         if admin_key:
             headers["X-Admin-Key"] = admin_key

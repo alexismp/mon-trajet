@@ -1,2 +1,2 @@
-# Règles Proguard pour Null-Track
+# Règles Proguard pour Mon trajet
 -keepattributes *Annotation*

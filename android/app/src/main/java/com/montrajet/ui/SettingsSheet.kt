@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.ui
+package com.montrajet.ui
 
 import android.app.TimePickerDialog
 import androidx.compose.foundation.background
@@ -45,10 +45,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.nulltrack.data.AppStats
-import com.nulltrack.data.ScheduleConfig
-import com.nulltrack.data.TrainAlert
-import com.nulltrack.ui.theme.*
+import com.montrajet.data.AppStats
+import com.montrajet.data.ScheduleConfig
+import com.montrajet.data.TrainAlert
+import com.montrajet.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

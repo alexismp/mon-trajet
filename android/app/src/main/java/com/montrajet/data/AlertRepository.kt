@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nulltrack.data
+package com.montrajet.data
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -27,7 +27,7 @@ import org.json.JSONObject
 class AlertRepository(context: Context) {
 
     private val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences("null_track_alerts", Context.MODE_PRIVATE)
+        context.applicationContext.getSharedPreferences("montrajet_alerts", Context.MODE_PRIVATE)
 
     private val _alerts = MutableStateFlow<List<TrainAlert>>(emptyList())
     val alerts: StateFlow<List<TrainAlert>> = _alerts.asStateFlow()

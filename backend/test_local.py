@@ -14,7 +14,7 @@
 
 #!/usr/bin/env python3
 """
-Script de test local pour Null-Track.
+Script de test local pour Mon trajet.
 Permet de tester :
 1. La simulation complète avec un train fictif annulé (sans clé API)
 2. L'appel réel à l'API IDFM PRIM (si PRIM_API_KEY est fournie)
@@ -160,7 +160,7 @@ def test_real_api():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Test local du moniteur Null-Track")
+    parser = argparse.ArgumentParser(description="Test local du moniteur Mon trajet")
     parser.add_argument("--real", action="store_true", help="Tester avec la vraie API PRIM")
     args = parser.parse_args()
 
