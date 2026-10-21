@@ -21,6 +21,7 @@ from datetime import datetime, time, timedelta, timezone
 import unittest
 
 from monitor import (
+    extract_all_departures,
     extract_cancelled_trains,
     extract_disrupted_trains,
     is_within_monitoring_window,
@@ -238,6 +239,176 @@ class TestBidirectionalMonitoring(unittest.TestCase):
         self.assertEqual(len(only_cancelled), 2)
         for t in only_cancelled:
             self.assertEqual(t["status_code"], "CANCELLED")
+
+    def test_paris_to_meudon_uses_montparnasse_departure_time(self):
+        # Simulation d'une réponse combinée Meudon + Paris-Montparnasse :
+        # - Train 165657 (MOPI) déjà parti de Montparnasse à 19h04, arrive à Meudon à 19h14 (à ignorer)
+        # - Train 165559 (GOPI) part de Montparnasse à 19h19 (17:19Z) voie 11, passe à Meudon à 19h29 (17:29:30Z) voie 1B
+        # - Train 165460 (PORO) part de Meudon vers Paris à 19h16 (17:16Z) voie 2B
+        combined_data = {
+            "Siri": {
+                "ServiceDelivery": {
+                    "ResponseTimestamp": "2026-10-15T17:13:34.000Z",
+                    "StopMonitoringDelivery": [
+                        {
+                            "MonitoredStopVisit": [
+                                {
+                                    "ItemIdentifier": "VISIT-165657",
+                                    "MonitoredVehicleJourney": {
+                                        "LineRef": {"value": "STIF:Line::C01736:"},
+                                        "DirectionRef": {"value": "Aller"},
+                                        "DestinationName": [{"value": "Mantes-la-Jolie"}],
+                                        "VehicleJourneyName": [{"value": "165657"}],
+                                        "JourneyNote": [{"value": "MOPI"}],
+                                        "MonitoredCall": {
+                                            "StopPointName": [{"value": "Meudon"}],
+                                            "AimedArrivalTime": "2026-10-15T17:13:50.000Z",
+                                            "AimedDepartureTime": "2026-10-15T17:14:30.000Z",
+                                            "ExpectedArrivalTime": "2026-10-15T17:14:19.000Z",
+                                            "ExpectedDepartureTime": "2026-10-15T17:14:59.000Z",
+                                            "DeparturePlatformName": {"value": "1B"},
+                                            "DepartureStatus": "onTime",
+                                        },
+                                    },
+                                },
+                                {
+                                    "ItemIdentifier": "VISIT-165559",
+                                    "MonitoredVehicleJourney": {
+                                        "LineRef": {"value": "STIF:Line::C01736:"},
+                                        "DirectionRef": {"value": "Aller"},
+                                        "DestinationName": [{"value": "Plaisir - Grignon"}],
+                                        "VehicleJourneyName": [{"value": "165559"}],
+                                        "JourneyNote": [{"value": "GOPI"}],
+                                        "MonitoredCall": {
+                                            "StopPointName": [{"value": "Meudon"}],
+                                            "AimedArrivalTime": "2026-10-15T17:28:50.000Z",
+                                            "AimedDepartureTime": "2026-10-15T17:29:30.000Z",
+                                            "ExpectedArrivalTime": "2026-10-15T17:28:50.000Z",
+                                            "ExpectedDepartureTime": "2026-10-15T17:29:30.000Z",
+                                            "DeparturePlatformName": {"value": "1B"},
+                                            "DepartureStatus": "onTime",
+                                        },
+                                    },
+                                },
+                                {
+                                    "ItemIdentifier": "VISIT-165460",
+                                    "MonitoredVehicleJourney": {
+                                        "LineRef": {"value": "STIF:Line::C01736:"},
+                                        "DirectionRef": {"value": "Retour"},
+                                        "DestinationName": [{"value": "Paris Montparnasse"}],
+                                        "VehicleJourneyName": [{"value": "165460"}],
+                                        "JourneyNote": [{"value": "PORO"}],
+                                        "MonitoredCall": {
+                                            "StopPointName": [{"value": "Meudon"}],
+                                            "AimedArrivalTime": "2026-10-15T17:15:20.000Z",
+                                            "AimedDepartureTime": "2026-10-15T17:16:00.000Z",
+                                            "DeparturePlatformName": {"value": "2B"},
+                                            "DepartureStatus": "onTime",
+                                        },
+                                    },
+                                },
+                            ]
+                        }
+                    ],
+                }
+            },
+            "ParisSiri": {
+                "ServiceDelivery": {
+                    "ResponseTimestamp": "2026-10-15T17:13:34.000Z",
+                    "StopMonitoringDelivery": [
+                        {
+                            "MonitoredStopVisit": [
+                                {
+                                    "ItemIdentifier": "PARIS-VISIT-165559",
+                                    "MonitoredVehicleJourney": {
+                                        "LineRef": {"value": "STIF:Line::C01736:"},
+                                        "DirectionRef": {"value": "Aller"},
+                                        "DestinationName": [{"value": "Plaisir - Grignon"}],
+                                        "VehicleJourneyName": [{"value": "165559"}],
+                                        "JourneyNote": [{"value": "GOPI"}],
+                                        "MonitoredCall": {
+                                            "StopPointName": [{"value": "Paris Montparnasse"}],
+                                            "AimedDepartureTime": "2026-10-15T17:19:00.000Z",
+                                            "ExpectedDepartureTime": "2026-10-15T17:19:00.000Z",
+                                            "DeparturePlatformName": {"value": "11"},
+                                            "DepartureStatus": "onTime",
+                                        },
+                                    },
+                                }
+                            ]
+                        }
+                    ],
+                }
+            },
+        }
+
+        departures = extract_all_departures(combined_data)
+        # Le train 165657 (déjà parti de Montparnasse à 19h04) est filtré, il reste 165460 et 165559
+        self.assertEqual(len(departures), 2)
+
+        gopi = [d for d in departures if d["mission_code"] == "GOPI"][0]
+        # Heure de départ depuis Paris-Montparnasse (19:19) et non l'arrivée à Meudon (19:29)
+        self.assertEqual(gopi["aimed_time"], "19:19")
+        self.assertEqual(gopi["expected_time"], "19:19")
+        self.assertEqual(gopi["platform"], "11")
+        self.assertEqual(gopi["direction"], "Banlieue")
+
+        poro = [d for d in departures if d["mission_code"] == "PORO"][0]
+        self.assertEqual(poro["aimed_time"], "19:16")
+        self.assertEqual(poro["platform"], "2B")
+        self.assertEqual(poro["direction"], "Paris-Montparnasse")
+
+    def test_duplicate_stop_visits_are_deduplicated(self):
+        duplicate_siri = {
+            "Siri": {
+                "ServiceDelivery": {
+                    "ResponseTimestamp": "2026-10-21T07:00:00.000Z",
+                    "StopMonitoringDelivery": [
+                        {
+                            "MonitoredStopVisit": [
+                                {
+                                    "ItemIdentifier": "VISIT-DUP-1",
+                                    "MonitoredVehicleJourney": {
+                                        "DirectionRef": {"value": "Retour"},
+                                        "DestinationName": [{"value": "Paris Montparnasse"}],
+                                        "FramedVehicleJourneyRef": {
+                                            "DatedVehicleJourneyRef": "SNCF_MAGENTA_PRD:VehicleJourney::4cc52afa-ac74-40f9-baf8-dc15941fc0bc:LOC"
+                                        },
+                                        "JourneyNote": [{"value": "PORO"}],
+                                        "MonitoredCall": {
+                                            "StopPointName": [{"value": "Meudon"}],
+                                            "AimedDepartureTime": "2026-10-21T07:16:00.000Z",
+                                            "DepartureStatus": "onTime",
+                                        },
+                                    },
+                                },
+                                {
+                                    "ItemIdentifier": "VISIT-DUP-2",
+                                    "MonitoredVehicleJourney": {
+                                        "DirectionRef": {"value": "Retour"},
+                                        "DestinationName": [{"value": "Paris Montparnasse"}],
+                                        "FramedVehicleJourneyRef": {
+                                            "DatedVehicleJourneyRef": "SNCF_MAGENTA_PRD:VehicleJourney::4cc52afa-ac74-40f9-baf8-dc15941fc0bc:LOC"
+                                        },
+                                        "JourneyNote": [{"value": "PORO"}],
+                                        "MonitoredCall": {
+                                            "StopPointName": [{"value": "Meudon"}],
+                                            "AimedDepartureTime": "2026-10-21T07:16:00.000Z",
+                                            "DeparturePlatformName": {"value": "2B"},
+                                            "DepartureStatus": "cancelled",
+                                        },
+                                    },
+                                },
+                            ]
+                        }
+                    ],
+                }
+            }
+        }
+        departures = extract_all_departures(duplicate_siri)
+        self.assertEqual(len(departures), 1)
+        self.assertEqual(departures[0]["status"], "CANCELLED")
+        self.assertEqual(departures[0]["platform"], "2B")
 
 
 if __name__ == "__main__":

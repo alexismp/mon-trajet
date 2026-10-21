@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from concurrent.futures import ThreadPoolExecutor
 import logging
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 import requests
 
@@ -31,6 +32,7 @@ from config import (
     MIN_DELAY_MINUTES,
     MONITORING_REF,
     NOTIFY_DELAYS,
+    PARIS_MONITORING_REF,
     PRIM_API_KEY,
     PRIM_API_URL,
     START_HOUR,
@@ -192,19 +194,11 @@ def is_within_monitoring_window(
     return True, f"Surveillance active ({dir_desc})", active_directions
 
 
-def fetch_stop_monitoring(
-    monitoring_ref: str = MONITORING_REF,
-    api_key: str = PRIM_API_KEY,
-    line_ref: Optional[str] = LINE_REF,
+def _fetch_single_stop_monitoring(
+    monitoring_ref: str,
+    api_key: str,
 ) -> Dict[str, Any]:
-    """
-    Interroge l'API PRIM SIRI Lite (stop-monitoring) pour un point d'arrêt donné.
-    """
-    if not api_key:
-        raise ValueError(
-            "PRIM_API_KEY est manquante. Veuillez définir la variable d'environnement PRIM_API_KEY."
-        )
-
+    """Interroge l'API PRIM SIRI Lite (stop-monitoring) pour un seul point d'arrêt."""
     headers = {
         "apiKey": api_key,
         "Accept": "application/json",
@@ -220,7 +214,7 @@ def fetch_stop_monitoring(
         record_prim_call_stat(response.status_code)
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         if response is None:
             try:
                 from firestore_client import record_prim_call_stat
@@ -229,6 +223,52 @@ def fetch_stop_monitoring(
             except Exception:
                 pass
         raise
+
+
+def fetch_stop_monitoring(
+    monitoring_ref: str = MONITORING_REF,
+    api_key: str = PRIM_API_KEY,
+    line_ref: Optional[str] = LINE_REF,
+    include_paris: bool = True,
+) -> Dict[str, Any]:
+    """
+    Interroge l'API PRIM SIRI Lite (stop-monitoring).
+    Lorsque l'arrêt principal (Meudon) est interrogé et include_paris=True,
+    récupère également en parallèle les départs de Paris-Montparnasse afin
+    d'obtenir les vraies heures de départ et voies depuis Paris-Montparnasse
+    pour le sens Paris ➔ Meudon.
+    """
+    if not api_key:
+        raise ValueError(
+            "PRIM_API_KEY est manquante. Veuillez définir la variable d'environnement PRIM_API_KEY."
+        )
+
+    should_fetch_paris = (
+        include_paris
+        and monitoring_ref == MONITORING_REF
+        and bool(PARIS_MONITORING_REF)
+        and PARIS_MONITORING_REF != monitoring_ref
+    )
+
+    if not should_fetch_paris:
+        return _fetch_single_stop_monitoring(monitoring_ref, api_key)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_meudon = executor.submit(_fetch_single_stop_monitoring, monitoring_ref, api_key)
+        future_paris = executor.submit(_fetch_single_stop_monitoring, PARIS_MONITORING_REF, api_key)
+
+        meudon_data = future_meudon.result()
+        try:
+            paris_data = future_paris.result()
+            if isinstance(paris_data, dict) and "Siri" in paris_data:
+                meudon_data["ParisSiri"] = paris_data["Siri"]
+        except Exception as e:
+            logger.warning(
+                f"Impossible de récupérer les départs de Paris-Montparnasse ({PARIS_MONITORING_REF}), "
+                f"repli sur l'estimation horaire depuis Meudon: {e}"
+            )
+
+    return meudon_data
 
 
 def is_train_cancelled(call: Dict[str, Any], journey: Dict[str, Any]) -> bool:
@@ -262,6 +302,230 @@ def parse_aimed_time(iso_str: Optional[str]) -> str:
         return iso_str[-8:-3] if len(iso_str) >= 8 else iso_str
 
 
+def _extract_journey_keys(journey: Dict[str, Any], visit: Dict[str, Any]) -> List[str]:
+    """Extrait l'ensemble des identifiants de course permettant de relier un train entre deux gares."""
+    keys: List[str] = []
+    dated_ref = journey.get("FramedVehicleJourneyRef", {}).get("DatedVehicleJourneyRef")
+    if dated_ref:
+        keys.append(str(dated_ref))
+
+    vj_ref = journey.get("VehicleJourneyRef", {}).get("value")
+    if vj_ref:
+        keys.append(str(vj_ref))
+
+    for name_obj in journey.get("VehicleJourneyName", []):
+        val = name_obj.get("value")
+        if val:
+            keys.append(str(val))
+
+    for tn_obj in journey.get("TrainNumbers", {}).get("TrainNumberRef", []):
+        val = tn_obj.get("value")
+        if val:
+            keys.append(str(val))
+
+    return keys
+
+
+def _build_paris_visits_lookup(
+    data: Dict[str, Any],
+) -> Tuple[Dict[str, Dict[str, Any]], Optional[datetime], bool]:
+    """
+    Construit un dictionnaire {journey_key: visit} à partir des départs de Paris-Montparnasse
+    présents dans data["ParisSiri"].
+    """
+    paris_siri = data.get("ParisSiri")
+    if not isinstance(paris_siri, dict):
+        return {}, None, False
+
+    service_delivery = paris_siri.get("ServiceDelivery", {})
+    stop_deliveries = service_delivery.get("StopMonitoringDelivery", [])
+    if not stop_deliveries:
+        return {}, None, False
+
+    resp_ts_str = service_delivery.get("ResponseTimestamp")
+    resp_dt: Optional[datetime] = None
+    if resp_ts_str:
+        try:
+            resp_dt = datetime.fromisoformat(resp_ts_str.replace("Z", "+00:00"))
+        except Exception:
+            resp_dt = None
+
+    visits = stop_deliveries[0].get("MonitoredStopVisit", [])
+    lookup: Dict[str, Dict[str, Any]] = {}
+
+    for p_visit in visits:
+        p_journey = p_visit.get("MonitoredVehicleJourney", {})
+        p_call = p_journey.get("MonitoredCall", {})
+
+        p_dest_names = [d.get("value", "") for d in p_journey.get("DestinationName", [])]
+        p_dest_str = " ".join(p_dest_names)
+        p_dir_ref = p_journey.get("DirectionRef", {}).get("value", "")
+        p_is_to_paris = (
+            (p_dir_ref == "Retour")
+            or ("montparnasse" in p_dest_str.lower())
+            or ("paris" in p_dest_str.lower())
+        )
+        # À Paris-Montparnasse, on ne garde que les trains au départ vers la banlieue
+        if p_is_to_paris:
+            continue
+
+        if not (p_call.get("AimedDepartureTime") or p_call.get("ExpectedDepartureTime")):
+            continue
+
+        for key in _extract_journey_keys(p_journey, p_visit):
+            lookup[key] = p_visit
+
+    return lookup, resp_dt, True
+
+
+def _estimate_paris_times_from_meudon_call(
+    call: Dict[str, Any],
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Estime l'heure de départ théorique et attendue depuis Paris-Montparnasse
+    à partir de l'horaire de passage à Meudon (temps de parcours théorique :
+    9 min 50 s jusqu'à l'arrivée à Meudon, 10 min 30 s jusqu'au départ de Meudon).
+    """
+    aimed_arr_iso = call.get("AimedArrivalTime")
+    aimed_dep_iso = call.get("AimedDepartureTime")
+    exp_arr_iso = call.get("ExpectedArrivalTime")
+    exp_dep_iso = call.get("ExpectedDepartureTime")
+
+    aimed_ref_iso = aimed_arr_iso or aimed_dep_iso
+    exp_ref_iso = exp_arr_iso or exp_dep_iso
+
+    if not aimed_ref_iso:
+        return aimed_dep_iso, exp_dep_iso
+
+    try:
+        aimed_dt = datetime.fromisoformat(aimed_ref_iso.replace("Z", "+00:00"))
+        if aimed_arr_iso:
+            offset = timedelta(minutes=9, seconds=50)
+        elif aimed_dt.second == 30:
+            offset = timedelta(minutes=10, seconds=30)
+        else:
+            offset = timedelta(minutes=10)
+
+        paris_aimed_dt = aimed_dt - offset
+        paris_aimed_iso = paris_aimed_dt.isoformat().replace("+00:00", "Z")
+
+        if exp_ref_iso:
+            base_for_exp_iso = (
+                aimed_arr_iso
+                if (exp_arr_iso and aimed_arr_iso)
+                else (aimed_dep_iso or aimed_ref_iso)
+            )
+            base_for_exp_dt = datetime.fromisoformat(base_for_exp_iso.replace("Z", "+00:00"))
+            exp_dt = datetime.fromisoformat(exp_ref_iso.replace("Z", "+00:00"))
+            delay_delta = exp_dt - base_for_exp_dt
+            paris_exp_dt = paris_aimed_dt + delay_delta
+            paris_exp_iso = paris_exp_dt.isoformat().replace("+00:00", "Z")
+        else:
+            paris_exp_iso = None
+
+        return paris_aimed_iso, paris_exp_iso
+    except Exception:
+        return aimed_dep_iso or aimed_arr_iso, exp_dep_iso or exp_arr_iso
+
+
+def _normalize_platform(raw_platform: Optional[str]) -> str:
+    """Nettoie le nom de voie (ignore la valeur 'unknown' renvoyée par SIRI Lite)."""
+    if not raw_platform:
+        return ""
+    cleaned = str(raw_platform).strip()
+    if cleaned.lower() == "unknown":
+        return ""
+    return cleaned
+
+
+def _resolve_visit_departure_info(
+    visit: Dict[str, Any],
+    is_to_paris: bool,
+    paris_lookup: Dict[str, Dict[str, Any]],
+    reference_dt: Optional[datetime],
+) -> Tuple[Optional[str], Optional[str], str, bool, str, bool]:
+    """
+    Détermine les horaires de départ (aimed_iso, expected_iso), la voie (platform),
+    l'état d'annulation (cancelled), le statut brut (dep_status_raw) et si le train
+    a déjà quitté sa gare de départ (already_departed_origin).
+
+    - Pour Meudon ➔ Paris (is_to_paris=True) : utilise l'arrêt à Meudon.
+    - Pour Paris ➔ Meudon (is_to_paris=False) : utilise le départ correspondant
+      à Paris-Montparnasse (ou à défaut l'estimation de départ depuis Montparnasse).
+    """
+    journey = visit.get("MonitoredVehicleJourney", {})
+    call = journey.get("MonitoredCall", {})
+
+    if is_to_paris:
+        aimed_iso = call.get("AimedDepartureTime") or call.get("AimedArrivalTime")
+        expected_iso = call.get("ExpectedDepartureTime") or call.get("ExpectedArrivalTime")
+        raw_plat = (
+            call.get("DeparturePlatformName", {}).get("value")
+            or call.get("ArrivalPlatformName", {}).get("value")
+            or ""
+        )
+        platform = _normalize_platform(raw_plat)
+        cancelled = is_train_cancelled(call, journey)
+        dep_status_raw = str(call.get("DepartureStatus", ""))
+        return aimed_iso, expected_iso, platform, cancelled, dep_status_raw, False
+
+    # Sens Paris-Montparnasse ➔ Meudon
+    matched_paris_visit = None
+    for key in _extract_journey_keys(journey, visit):
+        if key in paris_lookup:
+            matched_paris_visit = paris_lookup[key]
+            break
+
+    if matched_paris_visit is not None:
+        p_journey = matched_paris_visit.get("MonitoredVehicleJourney", {})
+        p_call = p_journey.get("MonitoredCall", {})
+        aimed_iso = p_call.get("AimedDepartureTime") or p_call.get("AimedArrivalTime")
+        expected_iso = p_call.get("ExpectedDepartureTime") or p_call.get("ExpectedArrivalTime")
+        raw_plat = (
+            p_call.get("DeparturePlatformName", {}).get("value")
+            or p_call.get("ArrivalPlatformName", {}).get("value")
+            or ""
+        )
+        platform = _normalize_platform(raw_plat)
+        cancelled = is_train_cancelled(p_call, p_journey) or is_train_cancelled(call, journey)
+        dep_status_raw = str(p_call.get("DepartureStatus", "") or call.get("DepartureStatus", ""))
+        return aimed_iso, expected_iso, platform, cancelled, dep_status_raw, False
+
+    # Aucun match direct dans le flux Paris-Montparnasse :
+    # si StopPointName est déjà Paris-Montparnasse, on garde les horaires tels quels,
+    # sinon (StopPointName = Meudon) on calcule l'heure de départ depuis Paris-Montparnasse.
+    stop_point_names = [s.get("value", "") for s in call.get("StopPointName", [])]
+    stop_point_str = " ".join(stop_point_names).lower()
+    if "montparnasse" in stop_point_str or "paris" in stop_point_str:
+        aimed_iso = call.get("AimedDepartureTime") or call.get("AimedArrivalTime")
+        expected_iso = call.get("ExpectedDepartureTime") or call.get("ExpectedArrivalTime")
+        raw_plat = (
+            call.get("DeparturePlatformName", {}).get("value")
+            or call.get("ArrivalPlatformName", {}).get("value")
+            or ""
+        )
+        platform = _normalize_platform(raw_plat)
+    else:
+        aimed_iso, expected_iso = _estimate_paris_times_from_meudon_call(call)
+        # Ne pas afficher la voie de Meudon (1B) pour un départ depuis Paris-Montparnasse
+        platform = ""
+
+    cancelled = is_train_cancelled(call, journey)
+    dep_status_raw = str(call.get("DepartureStatus", ""))
+
+    already_departed_origin = False
+    eff_iso = expected_iso or aimed_iso
+    if reference_dt is not None and eff_iso:
+        try:
+            eff_dt = datetime.fromisoformat(eff_iso.replace("Z", "+00:00"))
+            if eff_dt < reference_dt:
+                already_departed_origin = True
+        except Exception:
+            pass
+
+    return aimed_iso, expected_iso, platform, cancelled, dep_status_raw, already_departed_origin
+
+
 def extract_disrupted_trains(
     data: Dict[str, Any],
     active_directions: Optional[List[str]] = None,
@@ -286,11 +550,21 @@ def extract_disrupted_trains(
         if not stop_deliveries:
             return []
 
+        paris_lookup, paris_resp_dt, _ = _build_paris_visits_lookup(data)
+        meudon_resp_ts_str = service_delivery.get("ResponseTimestamp")
+        meudon_resp_dt: Optional[datetime] = None
+        if meudon_resp_ts_str:
+            try:
+                meudon_resp_dt = datetime.fromisoformat(meudon_resp_ts_str.replace("Z", "+00:00"))
+            except Exception:
+                meudon_resp_dt = None
+        ref_dt = paris_resp_dt or meudon_resp_dt
+
         visits = stop_deliveries[0].get("MonitoredStopVisit", [])
+        seen_train_ids = set()
 
         for visit in visits:
             journey = visit.get("MonitoredVehicleJourney", {})
-            call = journey.get("MonitoredCall", {})
 
             # Destination & Direction
             destination_names = [
@@ -305,10 +579,14 @@ def extract_disrupted_trains(
             if train_dir not in directions_to_check:
                 continue
 
-            aimed_dep_iso = call.get("AimedDepartureTime") or call.get("AimedArrivalTime")
-            expected_dep_iso = call.get("ExpectedDepartureTime") or call.get("ExpectedArrivalTime")
-            dep_status_raw = call.get("DepartureStatus", "")
-            cancelled = is_train_cancelled(call, journey)
+            (
+                aimed_dep_iso,
+                expected_dep_iso,
+                _platform,
+                cancelled,
+                dep_status_raw,
+                _already_departed,
+            ) = _resolve_visit_departure_info(visit, is_to_paris, paris_lookup, ref_dt)
 
             status, status_label, delay_min = compute_delay_and_status(
                 aimed_dep_iso, expected_dep_iso, cancelled, dep_status_raw
@@ -339,6 +617,9 @@ def extract_disrupted_trains(
             today_str = datetime.now(TIMEZONE).strftime("%Y-%m-%d")
             # Identifiant unique de déduplication : inclut status_code
             train_id = f"{today_str}_{train_dir}_{journey_ref or mission_code}_{dep_time_display}_{status_code}"
+            if train_id in seen_train_ids:
+                continue
+            seen_train_ids.add(train_id)
 
             dir_label = "Meudon ➔ Paris-Montparnasse" if is_to_paris else "Paris-Montparnasse ➔ Meudon"
             stop_display = "Meudon" if is_to_paris else "Paris-Montparnasse"
@@ -414,7 +695,8 @@ def extract_all_departures(
 ) -> List[Dict[str, Any]]:
     """
     Extrait l'ensemble des prochains passages en gare (à l'heure, retardés ou supprimés).
-    Permet de consulter le tableau complet des départs en temps réel.
+    - Pour le sens Meudon ➔ Paris : affiche l'heure de départ et la voie à la gare de Meudon.
+    - Pour le sens Paris ➔ Meudon : affiche l'heure de départ et la voie à la gare de Paris-Montparnasse.
     """
     departures = []
 
@@ -426,11 +708,22 @@ def extract_all_departures(
         if not stop_deliveries:
             return []
 
+        paris_lookup, paris_resp_dt, _ = _build_paris_visits_lookup(data)
+        meudon_resp_ts_str = service_delivery.get("ResponseTimestamp")
+        meudon_resp_dt: Optional[datetime] = None
+        if meudon_resp_ts_str:
+            try:
+                meudon_resp_dt = datetime.fromisoformat(meudon_resp_ts_str.replace("Z", "+00:00"))
+            except Exception:
+                meudon_resp_dt = None
+        ref_dt = paris_resp_dt or meudon_resp_dt
+
         visits = stop_deliveries[0].get("MonitoredStopVisit", [])
+        departures_by_id: Dict[str, Dict[str, Any]] = {}
+        status_priority = {"ON_TIME": 0, "DELAYED": 1, "CANCELLED": 2}
 
         for visit in visits:
             journey = visit.get("MonitoredVehicleJourney", {})
-            call = journey.get("MonitoredCall", {})
 
             # Destination
             destination_names = [
@@ -439,6 +732,29 @@ def extract_all_departures(
             dest_str = " ".join(destination_names)
 
             if destination_filter and destination_filter.lower() not in dest_str.lower():
+                continue
+
+            # Direction : Vers Paris ou Vers Banlieue (Paris ➔ Meudon)
+            dir_ref = journey.get("DirectionRef", {}).get("value", "")
+            is_paris = (
+                (dir_ref == "Retour")
+                or ("montparnasse" in dest_str.lower())
+                or ("paris" in dest_str.lower())
+            )
+            direction = "Paris-Montparnasse" if is_paris else "Banlieue"
+
+            (
+                aimed_iso,
+                expected_iso,
+                platform,
+                cancelled,
+                raw_status,
+                already_departed_origin,
+            ) = _resolve_visit_departure_info(visit, is_paris, paris_lookup, ref_dt)
+
+            # Si le train (Paris ➔ Meudon) a déjà quitté Paris-Montparnasse et est en route vers Meudon,
+            # il ne fait plus partie des prochains départs depuis Paris-Montparnasse.
+            if not is_paris and already_departed_origin and not cancelled:
                 continue
 
             # Code mission
@@ -452,18 +768,6 @@ def extract_all_departures(
             if not mission_code and journey_ref:
                 mission_code = str(journey_ref).split(":")[-1]
 
-            # Voie / Quai
-            platform = (
-                call.get("DeparturePlatformName", {}).get("value")
-                or call.get("ArrivalPlatformName", {}).get("value")
-                or ""
-            )
-
-            aimed_iso = call.get("AimedDepartureTime") or call.get("AimedArrivalTime")
-            expected_iso = call.get("ExpectedDepartureTime") or call.get("ExpectedArrivalTime")
-
-            cancelled = is_train_cancelled(call, journey)
-            raw_status = call.get("DepartureStatus", "")
             status, status_label, delay_min = compute_delay_and_status(
                 aimed_iso, expected_iso, cancelled, raw_status
             )
@@ -471,13 +775,9 @@ def extract_all_departures(
             aimed_time = parse_aimed_time(aimed_iso)
             expected_time = parse_aimed_time(expected_iso) if expected_iso else aimed_time
 
-            # Direction : Vers Paris ou Vers Banlieue
-            is_paris = "montparnasse" in dest_str.lower() or "paris" in dest_str.lower()
-            direction = "Paris-Montparnasse" if is_paris else "Banlieue"
-
             unique_id = f"{journey_ref or mission_code}_{aimed_time}_{dest_str}"
 
-            departures.append({
+            entry = {
                 "id": unique_id,
                 "mission_code": mission_code,
                 "destination": dest_str or "Paris-Montparnasse",
@@ -489,11 +789,38 @@ def extract_all_departures(
                 "status_label": status_label,
                 "delay_minutes": delay_min,
                 "is_cancelled": cancelled,
-            })
+                "_sort_iso": aimed_iso or "",
+            }
+
+            existing = departures_by_id.get(unique_id)
+            if existing is None:
+                departures_by_id[unique_id] = entry
+                departures.append(entry)
+            else:
+                if status_priority.get(status, 0) > status_priority.get(existing["status"], 0):
+                    existing.update(entry)
+                elif not existing.get("platform") and platform:
+                    existing["platform"] = platform
 
     except Exception as e:
         logger.error(f"Erreur lors de l'extraction de tous les départs: {e}", exc_info=True)
 
-    # Tri par heure prévue de départ
-    departures.sort(key=lambda d: d.get("aimed_time", "99:99"))
+    def _departure_sort_key(d: Dict[str, Any]) -> Tuple[int, str]:
+        sort_iso = d.get("_sort_iso", "")
+        if sort_iso:
+            return (0, sort_iso)
+        t_str = d.get("aimed_time", "99:99")
+        parts = t_str.split(":")
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            h = int(parts[0])
+            m = int(parts[1])
+            if h < 4:
+                h += 24
+            return (1, f"{h:02d}:{m:02d}")
+        return (2, t_str)
+
+    # Tri chronologique par heure prévue de départ (gère le passage après minuit)
+    departures.sort(key=_departure_sort_key)
+    for d in departures:
+        d.pop("_sort_iso", None)
     return departures

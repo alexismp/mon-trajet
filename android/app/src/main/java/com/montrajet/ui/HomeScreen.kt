@@ -89,7 +89,7 @@ fun HomeScreen(
     }
 
     val filteredDepartures = remember(departures, selectedFilter) {
-        when (selectedFilter) {
+        val filtered = when (selectedFilter) {
             "TO_PARIS" -> departures.filter {
                 it.destination.contains("Montparnasse", ignoreCase = true) ||
                 it.destination.contains("Paris", ignoreCase = true)
@@ -100,6 +100,7 @@ fun HomeScreen(
             }
             else -> departures
         }
+        filtered.distinctBy { it.id }
     }
 
     Scaffold(
@@ -184,116 +185,125 @@ fun HomeScreen(
             // ==========================================
             // En-tête des prochains départs
             item {
-                val directionHeader = if (activeDirectionCode == "TO_PARIS") "Meudon ➔ Paris" else "Paris ➔ Meudon"
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Prochains départs ($directionHeader)",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 19.sp,
-                                color = TextPrimary
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Gare de Meudon • Mis à jour : ${lastUpdatedDepartures ?: "Chargement..."}",
-                                fontSize = 13.sp,
-                                color = TextSecondary
-                            )
-                        }
+                val directionHeader = when (selectedFilter) {
+                    "TO_PARIS" -> "Meudon ➔ Paris"
+                    "TO_MEUDON" -> "Paris ➔ Meudon"
+                    else -> "Tous les sens"
+                }
+                val departureStationLabel = when (selectedFilter) {
+                    "TO_PARIS" -> "Départ : Gare de Meudon"
+                    "TO_MEUDON" -> "Départ : Paris-Montparnasse"
+                    else -> "Meudon & Montparnasse"
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Prochains départs ($directionHeader)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 19.sp,
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "$departureStationLabel • Mis à jour : ${lastUpdatedDepartures ?: "Chargement..."}",
+                            fontSize = 13.sp,
+                            color = TextSecondary
+                        )
+                    }
 
-                        IconButton(onClick = onRefreshDepartures, enabled = !isDeparturesLoading) {
-                            if (isDeparturesLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(22.dp),
-                                    color = TransilienN,
-                                    strokeWidth = 2.5.dp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Rafraîchir les départs",
-                                    tint = TransilienN,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                    IconButton(onClick = onRefreshDepartures, enabled = !isDeparturesLoading) {
+                        if (isDeparturesLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = TransilienN,
+                                strokeWidth = 2.5.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Rafraîchir les départs",
+                                tint = TransilienN,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
+            }
 
-                // Badges récapitulatifs d'état
-                item {
-                    val cancelledCount = departures.count { it.status == DepartureStatus.CANCELLED }
-                    val delayedCount = departures.count { it.status == DepartureStatus.DELAYED }
-                    val onTimeCount = departures.count { it.status == DepartureStatus.ON_TIME }
+            // Badges récapitulatifs d'état
+            item {
+                val cancelledCount = filteredDepartures.count { it.status == DepartureStatus.CANCELLED }
+                val delayedCount = filteredDepartures.count { it.status == DepartureStatus.DELAYED }
+                val onTimeCount = filteredDepartures.count { it.status == DepartureStatus.ON_TIME }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (cancelledCount > 0) {
-                            StatusSummaryChip(
-                                count = cancelledCount,
-                                label = "Annulé${if (cancelledCount > 1) "s" else ""}",
-                                containerColor = Color(0xFFFFEBEE),
-                                textColor = Color(0xFFC62828)
-                            )
-                        }
-                        if (delayedCount > 0) {
-                            StatusSummaryChip(
-                                count = delayedCount,
-                                label = "En retard",
-                                containerColor = Color(0xFFFFF3E0),
-                                textColor = Color(0xFFE65100)
-                            )
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (cancelledCount > 0) {
                         StatusSummaryChip(
-                            count = onTimeCount,
-                            label = "À l'heure",
-                            containerColor = Color(0xFFE8F5E9),
-                            textColor = Color(0xFF2E7D32)
+                            count = cancelledCount,
+                            label = "Annulé${if (cancelledCount > 1) "s" else ""}",
+                            containerColor = Color(0xFFFFEBEE),
+                            textColor = Color(0xFFC62828)
                         )
                     }
+                    if (delayedCount > 0) {
+                        StatusSummaryChip(
+                            count = delayedCount,
+                            label = "En retard",
+                            containerColor = Color(0xFFFFF3E0),
+                            textColor = Color(0xFFE65100)
+                        )
+                    }
+                    StatusSummaryChip(
+                        count = onTimeCount,
+                        label = "À l'heure",
+                        containerColor = Color(0xFFE8F5E9),
+                        textColor = Color(0xFF2E7D32)
+                    )
                 }
+            }
 
-                // Filtres de direction pour affiner si besoin
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = selectedFilter == "TO_PARIS",
-                            onClick = { selectedFilter = "TO_PARIS" },
-                            label = { Text("Vers Paris", fontSize = 14.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = TransilienN,
-                                selectedLabelColor = Color.White
-                            )
+            // Filtres de direction pour affiner si besoin
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedFilter == "TO_PARIS",
+                        onClick = { selectedFilter = "TO_PARIS" },
+                        label = { Text("Meudon ➔ Paris", fontSize = 14.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = TransilienN,
+                            selectedLabelColor = Color.White
                         )
-                        FilterChip(
-                            selected = selectedFilter == "TO_MEUDON",
-                            onClick = { selectedFilter = "TO_MEUDON" },
-                            label = { Text("Vers Banlieue", fontSize = 14.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = TransilienN,
-                                selectedLabelColor = Color.White
-                            )
+                    )
+                    FilterChip(
+                        selected = selectedFilter == "TO_MEUDON",
+                        onClick = { selectedFilter = "TO_MEUDON" },
+                        label = { Text("Paris ➔ Meudon", fontSize = 14.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = TransilienN,
+                            selectedLabelColor = Color.White
                         )
-                        FilterChip(
-                            selected = selectedFilter == "ALL",
-                            onClick = { selectedFilter = "ALL" },
-                            label = { Text("Tous les trains", fontSize = 14.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = TransilienN,
-                                selectedLabelColor = Color.White
-                            )
+                    )
+                    FilterChip(
+                        selected = selectedFilter == "ALL",
+                        onClick = { selectedFilter = "ALL" },
+                        label = { Text("Tous", fontSize = 14.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = TransilienN,
+                            selectedLabelColor = Color.White
                         )
-                    }
+                    )
                 }
+            }
 
                 // Liste des cartes de trains
                 if (filteredDepartures.isEmpty()) {

@@ -53,7 +53,7 @@ fun DeparturesSheet(
     var selectedFilter by remember { mutableStateOf("Montparnasse") }
 
     val filteredDepartures = remember(departures, selectedFilter) {
-        when (selectedFilter) {
+        val filtered = when (selectedFilter) {
             "Montparnasse" -> departures.filter {
                 it.destination.contains("Montparnasse", ignoreCase = true) ||
                 it.destination.contains("Paris", ignoreCase = true)
@@ -64,11 +64,17 @@ fun DeparturesSheet(
             }
             else -> departures
         }
+        filtered.distinctBy { it.id }
     }
 
-    val cancelledCount = departures.count { it.status == DepartureStatus.CANCELLED }
-    val delayedCount = departures.count { it.status == DepartureStatus.DELAYED }
-    val onTimeCount = departures.count { it.status == DepartureStatus.ON_TIME }
+    val cancelledCount = filteredDepartures.count { it.status == DepartureStatus.CANCELLED }
+    val delayedCount = filteredDepartures.count { it.status == DepartureStatus.DELAYED }
+    val onTimeCount = filteredDepartures.count { it.status == DepartureStatus.ON_TIME }
+    val stationTitle = when (selectedFilter) {
+        "Montparnasse" -> "Départ : Gare de Meudon"
+        "Banlieue" -> "Départ : Paris-Montparnasse"
+        else -> "Meudon & Montparnasse"
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -105,7 +111,7 @@ fun DeparturesSheet(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Gare de Meudon",
+                            text = stationTitle,
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp,
                             color = TextPrimary

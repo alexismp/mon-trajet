@@ -74,9 +74,10 @@ class DeparturesRepository private constructor(private val context: Context) {
                 for (i in 0 until array.length()) {
                     list.add(TrainDeparture.fromJsonObject(array.getJSONObject(i)))
                 }
-                _departures.value = list
+                val deduplicated = list.distinctBy { it.id }
+                _departures.value = deduplicated
                 _lastUpdated.value = updatedStr ?: "Mis en cache"
-                Log.d(TAG, "${list.size} départs chargés depuis le cache local.")
+                Log.d(TAG, "${deduplicated.size} départs chargés depuis le cache local.")
             } catch (e: Exception) {
                 Log.w(TAG, "Erreur lecture cache départs: ${e.message}")
             }
@@ -112,7 +113,7 @@ class DeparturesRepository private constructor(private val context: Context) {
                     val rawDepartures = snapshot.get("departures") as? List<*>
                     val parsed = rawDepartures?.mapNotNull { item ->
                         (item as? Map<String, Any?>)?.let { TrainDeparture.fromMap(it) }
-                    } ?: emptyList()
+                    }?.distinctBy { it.id } ?: emptyList()
 
                     if (parsed.isNotEmpty()) {
                         val updated = formatIsoToTime(snapshot.getString("updated_at"))
@@ -242,17 +243,18 @@ class DeparturesRepository private constructor(private val context: Context) {
                         val itemObj = rawDeps.getJSONObject(i)
                         list.add(TrainDeparture.fromJsonObject(itemObj))
                     }
-                    if (list.isNotEmpty()) {
+                    val deduplicated = list.distinctBy { it.id }
+                    if (deduplicated.isNotEmpty()) {
                         val updated = formatIsoToTime(json.optString("updated_at"))
-                        _departures.value = list
+                        _departures.value = deduplicated
                         _lastUpdated.value = updated
-                        saveCachedDepartures(list, updated)
+                        saveCachedDepartures(deduplicated, updated)
                         notifyWidgetUpdate()
                         val isCachedOnServer = json.optBoolean("cached", false)
                         val cacheAge = json.optInt("cache_age_seconds", 0)
                         Log.d(
                             TAG,
-                            "${list.size} départs rafraîchis via backend (serveur en cache: $isCachedOnServer, âge: ${cacheAge}s)."
+                            "${deduplicated.size} départs rafraîchis via backend (serveur en cache: $isCachedOnServer, âge: ${cacheAge}s)."
                         )
                         return@withContext true
                     }
@@ -273,7 +275,7 @@ class DeparturesRepository private constructor(private val context: Context) {
                         val rawDepartures = snapshot.get("departures") as? List<*>
                         val parsed = rawDepartures?.mapNotNull { item ->
                             (item as? Map<String, Any?>)?.let { TrainDeparture.fromMap(it) }
-                        } ?: emptyList()
+                        }?.distinctBy { it.id } ?: emptyList()
                         if (parsed.isNotEmpty()) {
                             val updated = formatIsoToTime(snapshot.getString("updated_at"))
                             _departures.value = parsed

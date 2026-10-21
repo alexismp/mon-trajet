@@ -16,19 +16,32 @@
 
 set -e
 
-# Configuration par défaut
+# Configuration par défaut (priorité à GCP_PROJECT_ID puis FIREBASE_PROJECT_ID de backend/.env)
+if [ -z "$GCP_PROJECT_ID" ] && [ -f "./backend/.env" ]; then
+    GCP_PROJECT_ID=$(grep '^FIREBASE_PROJECT_ID=' ./backend/.env | cut -d '=' -f2- | tr -d ' "'\''')
+fi
 PROJECT_ID=${GCP_PROJECT_ID:-$(gcloud config get-value project 2>/dev/null)}
 if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "(unset)" ]; then
     PROJECT_ID="alexismp-runner"
 fi
 REGION=${GCP_REGION:-"europe-west1"}
-SERVICE_NAME="mon-trajet-monitor"
-SCHEDULER_JOB_NAME="mon-trajet-scheduler"
+SERVICE_NAME=${SERVICE_NAME:-"null-track-monitor"}
+SCHEDULER_JOB_NAME=${SCHEDULER_JOB_NAME:-"null-track-scheduler"}
+
+# Sélection automatique du compte gcloud ayant accès au projet cible
+if ! gcloud projects describe "${PROJECT_ID}" >/dev/null 2>&1; then
+    for candidate_account in "alexis.mp@gmail.com" "alexismp@google.com" "amoussinepouchkine@vitiaz.org" "alexis.mp@asmeudontennis.fr"; do
+        if gcloud projects describe "${PROJECT_ID}" --account="${candidate_account}" >/dev/null 2>&1; then
+            export CLOUDSDK_CORE_ACCOUNT="${candidate_account}"
+            break
+        fi
+    done
+fi
 
 echo "=========================================================="
 echo " 🚀 Déploiement de Mon trajet (Cloud Run functions) sur GCP"
 echo "=========================================================="
-echo "Projet GCP : ${PROJECT_ID}"
+echo "Projet GCP : ${PROJECT_ID} (Compte: ${CLOUDSDK_CORE_ACCOUNT:-$(gcloud config get-value account 2>/dev/null)})"
 echo "Région     : ${REGION}"
 echo "Service    : ${SERVICE_NAME}"
 echo "Technologie: Cloud Run functions (Gen2)"
@@ -62,7 +75,7 @@ if [ -z "$ADMIN_SECRET_KEY" ]; then
 fi
 
 # 3. Compte de service dédié pour Cloud Scheduler (Authentification OIDC)
-SCHEDULER_SA_NAME="montrajet-scheduler-sa"
+SCHEDULER_SA_NAME="nulltrack-scheduler-sa"
 SCHEDULER_SA="${SCHEDULER_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 echo "🔐 Configuration du compte de service pour Cloud Scheduler (${SCHEDULER_SA})..."
@@ -81,9 +94,11 @@ gcloud functions deploy "${SERVICE_NAME}" \
     --source=./backend \
     --entry-point=check_trains_http \
     --trigger-http \
+    --allow-unauthenticated \
     --max-instances=2 \
     --set-env-vars="PRIM_API_KEY=${PRIM_API_KEY},FIREBASE_PROJECT_ID=${PROJECT_ID},ADMIN_SECRET_KEY=${ADMIN_SECRET_KEY},ALLOW_SIMULATION_ENDPOINT=true" \
-    --project="${PROJECT_ID}"
+    --project="${PROJECT_ID}" \
+    --quiet
 
 # Récupération de l'URL de la fonction
 FUNCTION_URL=$(gcloud functions describe "${SERVICE_NAME}" --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
@@ -106,7 +121,7 @@ if gcloud scheduler jobs describe "${SCHEDULER_JOB_NAME}" --location="${REGION}"
         --uri="${FUNCTION_URL}" \
         --http-method=GET \
         --oidc-service-account-email="${SCHEDULER_SA}" \
-        --oidc-audience="${FUNCTION_URL}" \
+        --oidc-token-audience="${FUNCTION_URL}" \
         --project="${PROJECT_ID}"
     echo "✅ Job Scheduler mis à jour avec authentification OIDC."
 else
@@ -117,7 +132,7 @@ else
         --uri="${FUNCTION_URL}" \
         --http-method=GET \
         --oidc-service-account-email="${SCHEDULER_SA}" \
-        --oidc-audience="${FUNCTION_URL}" \
+        --oidc-token-audience="${FUNCTION_URL}" \
         --project="${PROJECT_ID}"
     echo "✅ Job Scheduler créé avec authentification OIDC."
 fi

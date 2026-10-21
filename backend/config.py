@@ -41,6 +41,11 @@ PRIM_API_URL = os.getenv(
 DEFAULT_MONITORING_REF = "STIF:StopArea:SP:43162:"
 MONITORING_REF = os.getenv("PRIM_MONITORING_REF", DEFAULT_MONITORING_REF)
 
+# Gare de Paris-Montparnasse (Code StopArea IDFM)
+# STIF:StopArea:SP:43238: correspond à la gare de Paris-Montparnasse (Ligne N)
+DEFAULT_PARIS_MONITORING_REF = "STIF:StopArea:SP:43238:"
+PARIS_MONITORING_REF = os.getenv("PRIM_PARIS_MONITORING_REF", DEFAULT_PARIS_MONITORING_REF)
+
 # Ligne N (Code IDFM STIF:Line::C01736:)
 LINE_REF = os.getenv("PRIM_LINE_REF", "STIF:Line::C01736:")
 
