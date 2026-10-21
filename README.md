@@ -10,6 +10,22 @@ Il combine un backend serverless sur Google Cloud, une application Android moder
 
 ---
 
+## 📸 Aperçu de l'application & du widget
+
+### Application Android (Jetpack Compose / Material 3)
+
+| Écran principal & Prochains départs | Options & Paramètres de surveillance |
+| :---: | :---: |
+| <img src="docs/screenshots/app_home.png" alt="Écran principal Mon trajet" width="380" /> | <img src="docs/screenshots/app_settings.png" alt="Paramètres Mon trajet" width="380" /> |
+
+### Widget d'écran d'accueil (2x1) — États temps réel
+
+<p align="center">
+  <img src="docs/screenshots/widget_states.png" alt="États du widget Android Mon trajet" width="680" />
+</p>
+
+---
+
 ## ✨ Fonctionnalités principales
 
 - 📱 **Widget Android compact (2x1)** :
@@ -91,6 +107,8 @@ mon-trajet/
 │   └── build.gradle.kts
 ├── deploy/
 │   └── deploy_gcp.sh          # Script de déploiement Cloud Run & Cloud Scheduler
+├── docs/
+│   └── screenshots/           # Captures d'écran de l'application et du widget
 ├── firestore.rules            # Règles de sécurité Cloud Firestore
 ├── firebase.json              # Configuration Firebase
 ├── LICENSE                    # Licence Apache 2.0
