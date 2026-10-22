@@ -202,6 +202,25 @@ class TestBidirectionalMonitoring(unittest.TestCase):
         self.assertTrue(is_active)
         self.assertEqual(active_dirs, ["TO_PARIS"])
 
+    def test_explicit_quick_monitoring_overrides_scheduled_direction(self):
+        # Utilisateur déjà à Paris à 08h30 (pendant le créneau matin 07h00-09h30)
+        # qui déclenche une surveillance ponctuelle TO_MEUDON :
+        # ne doit PAS inclure TO_PARIS ni return_commute_until opposé.
+        now_8h30 = datetime(2026, 9, 24, 8, 30, tzinfo=TIMEZONE)
+        quick_until = (now_8h30 + timedelta(hours=1)).astimezone(timezone.utc).isoformat()
+        cfg = {
+            "enabled": True,
+            "active_days": [0, 1, 2, 3, 4],
+            "morning_enabled": True,
+            "morning_start_hour": 7, "morning_start_minute": 0,
+            "morning_end_hour": 9, "morning_end_minute": 30,
+            "quick_monitoring_until": quick_until,
+            "quick_monitoring_direction": "TO_MEUDON",
+        }
+        is_active, reason, active_dirs = is_within_monitoring_window(dt=now_8h30, schedule=cfg)
+        self.assertTrue(is_active)
+        self.assertEqual(active_dirs, ["TO_MEUDON"])
+
     def test_extract_disrupted_trains_delays_and_cancellations(self):
         # 1. Vérification sens TO_PARIS (1 annulé + 1 retardé de 12 min)
         disrupted_paris = extract_disrupted_trains(

@@ -97,6 +97,7 @@ def is_within_monitoring_window(
             logger.warning(f"Erreur lors de la vérification de paused_until ({paused_until}): {e}")
 
     active_directions: List[str] = []
+    explicit_quick_direction = False
 
     # 3. Vérification de la surveillance ponctuelle (Widget ou Déclencheur retour)
     # A. Surveillance ponctuelle par Widget / Géolocalisation (quick_monitoring_until)
@@ -113,10 +114,13 @@ def is_within_monitoring_window(
                 q_dt = quick_until
 
             if now.astimezone(timezone.utc) < q_dt.astimezone(timezone.utc):
-                target_dirs = ["TO_PARIS", "TO_MEUDON"] if quick_dir in ("AUTO", None, "") else [quick_dir]
-                for td in target_dirs:
-                    if td not in active_directions:
-                        active_directions.append(td)
+                if quick_dir in ("TO_PARIS", "TO_MEUDON"):
+                    active_directions = [quick_dir]
+                    explicit_quick_direction = True
+                else:
+                    for td in ("TO_PARIS", "TO_MEUDON"):
+                        if td not in active_directions:
+                            active_directions.append(td)
                 q_str = q_dt.astimezone(TIMEZONE).strftime("%H:%M")
                 logger.info(f"Surveillance ponctuelle (Widget) active jusqu'à {q_str} pour {quick_dir}.")
         except Exception as e:
@@ -124,7 +128,7 @@ def is_within_monitoring_window(
 
     # B. Rétrocompatibilité return_commute_until (Paris ➔ Meudon)
     return_until = cfg.get("return_commute_until")
-    if return_until:
+    if return_until and not explicit_quick_direction:
         try:
             if isinstance(return_until, (int, float)):
                 ret_epoch = return_until / 1000.0 if return_until > 1e11 else float(return_until)
@@ -143,11 +147,12 @@ def is_within_monitoring_window(
             logger.warning(f"Erreur vérification return_commute_until: {e}")
 
     # 4. Vérification des jours actifs et plages horaires programmées
+    # (Ignoré si une surveillance ponctuelle avec direction explicite est en cours)
     active_days = cfg.get("active_days")
     if active_days is None:
         active_days = ACTIVE_DAYS
 
-    if current_day in active_days:
+    if not explicit_quick_direction and current_day in active_days:
         # A. Plage Matin (Meudon ➔ Paris-Montparnasse)
         m_enabled = cfg.get("morning_enabled", True)
         m_start_h = cfg.get("morning_start_hour", cfg.get("start_hour", START_HOUR))
