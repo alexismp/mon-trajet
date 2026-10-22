@@ -90,20 +90,12 @@ def send_cancellation_alert(train: Dict[str, Any], topic: str = FCM_TOPIC) -> bo
 
     message = messaging.Message(
         topic=topic,
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
         android=messaging.AndroidConfig(
             priority="high",
-            notification=messaging.AndroidNotification(
-                channel_id="TRAIN_ALERTS",
-                sound="default",
-                priority="max",
-                default_vibrate_timings=True,
-            ),
         ),
         data={
+            "title": str(title),
+            "body": str(body),
             "train_id": str(train.get("id", "")),
             "mission_code": str(mission),
             "departure_time": str(departure),
