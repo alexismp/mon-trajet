@@ -1,10 +1,10 @@
-# 🚆 Mon trajet — Surveillance & Alertes Transilien Ligne N
+# 🚆 Metro Boulot — Surveillance & Alertes Transilien Ligne N
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 ![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Cloud%20Run-brightgreen.svg)
 ![Transilien](https://img.shields.io/badge/Transilien-Ligne%20N-00A5DE.svg)
 
-**Mon trajet** est un système intelligent et temps réel d'alerte et de surveillance pour les usagers de la **Ligne N du Transilien** (Gare de Meudon ⇄ Paris-Montparnasse / Banlieue).
+**Metro Boulot** est un système intelligent et temps réel d'alerte et de surveillance pour les usagers de la **Ligne N du Transilien** (Gare de Meudon ⇄ Paris-Montparnasse / Banlieue).
 
 Il combine un backend serverless sur Google Cloud, une application Android moderne en Jetpack Compose, et un widget d'écran d'accueil compact synchronisé en permanence.
 
@@ -16,12 +16,12 @@ Il combine un backend serverless sur Google Cloud, une application Android moder
 
 | Écran principal & Prochains départs | Options & Paramètres de surveillance |
 | :---: | :---: |
-| <img src="docs/screenshots/app_home.png" alt="Écran principal Mon trajet" width="380" /> | <img src="docs/screenshots/app_settings.png" alt="Paramètres Mon trajet" width="380" /> |
+| <img src="docs/screenshots/app_home.png" alt="Écran principal Metro Boulot" width="380" /> | <img src="docs/screenshots/app_settings.png" alt="Paramètres Metro Boulot" width="380" /> |
 
 ### Widget d'écran d'accueil (2x1) — États temps réel
 
 <p align="center">
-  <img src="docs/screenshots/widget_states.png" alt="États du widget Android Mon trajet" width="680" />
+  <img src="docs/screenshots/widget_states.png" alt="États du widget Android Metro Boulot" width="680" />
 </p>
 
 ---
@@ -87,7 +87,7 @@ mon-trajet/
 │   └── .env.example           # Variables d'environnement locales
 ├── android/
 │   ├── app/
-│   │   ├── src/main/java/com/montrajet/
+│   │   ├── src/main/java/net/metroboulot/
 │   │   │   ├── MainActivity.kt                  # Activité principale & gestion des intents
 │   │   │   ├── data/
 │   │   │   │   ├── DeparturesRepository.kt      # Dépôt des départs réels (cache local & synchro)
@@ -147,7 +147,7 @@ Le Cloud Scheduler interroge l'endpoint du service toutes les 3 minutes. Les req
 
 ### 3. Compilation et Installation de l'application Android
 
-1. Téléchargez votre fichier `google-services.json` depuis la console Firebase (package : `com.montrajet`).
+1. Téléchargez votre fichier `google-services.json` depuis la console Firebase (package : `net.metroboulot`).
 2. Placez-le dans `android/app/google-services.json`.
 3. Configurez l'URL de votre backend dans `android/local.properties` (non suivi par Git) :
    ```properties

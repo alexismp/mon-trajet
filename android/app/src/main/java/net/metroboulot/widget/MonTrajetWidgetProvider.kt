@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet.widget
+package net.metroboulot.widget
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -27,12 +27,12 @@ import android.graphics.Color
 import android.os.Build
 import android.util.Log
 import android.widget.RemoteViews
-import com.montrajet.MainActivity
-import com.montrajet.R
-import com.montrajet.data.DeparturesRepository
-import com.montrajet.data.ScheduleConfig
-import com.montrajet.data.ScheduleRepository
-import com.montrajet.location.LocationHelper
+import net.metroboulot.MainActivity
+import net.metroboulot.R
+import net.metroboulot.data.DeparturesRepository
+import net.metroboulot.data.ScheduleConfig
+import net.metroboulot.data.ScheduleRepository
+import net.metroboulot.location.LocationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -118,8 +118,8 @@ class MonTrajetWidgetProvider : AppWidgetProvider() {
 
     companion object {
         private const val TAG = "MonTrajetWidget"
-        const val ACTION_TOGGLE_MONITORING = "com.montrajet.widget.ACTION_TOGGLE_MONITORING"
-        const val ACTION_REFRESH = "com.montrajet.widget.ACTION_REFRESH"
+        const val ACTION_TOGGLE_MONITORING = "net.metroboulot.widget.ACTION_TOGGLE_MONITORING"
+        const val ACTION_REFRESH = "net.metroboulot.widget.ACTION_REFRESH"
         private const val ALARM_REQUEST_CODE = 9001
 
         fun updateAllWidgets(context: Context) {
@@ -221,8 +221,11 @@ class MonTrajetWidgetProvider : AppWidgetProvider() {
                 val isActive = schedule.isMonitoringActiveNow()
 
                 val departuresRepo = DeparturesRepository.getInstance(context)
-                val hasDisruption = departuresRepo.hasDisruptions(schedule.minDelayMinutes)
-                val disruptionSummary = departuresRepo.getDisruptionSummary(schedule.minDelayMinutes)
+                val targetDirection = schedule.getActiveDirectionCode()
+                    ?.takeIf { it != "AUTO" }
+                    ?: LocationHelper.detectCommuteDirection(context).direction.code
+                val hasDisruption = departuresRepo.hasDisruptions(schedule.minDelayMinutes, targetDirection)
+                val disruptionSummary = departuresRepo.getDisruptionSummary(schedule.minDelayMinutes, targetDirection)
 
                 // Intent universel pour ouvrir l'application sur le tableau des départs
                 val appIntent = Intent(context, MainActivity::class.java).apply {

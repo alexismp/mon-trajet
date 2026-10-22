@@ -37,11 +37,11 @@ val backendApiKey = localProperties.getProperty("backend.api.key")
     ?: ""
 
 android {
-    namespace = "com.montrajet"
+    namespace = "net.metroboulot"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.montrajet"
+        applicationId = "net.metroboulot"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

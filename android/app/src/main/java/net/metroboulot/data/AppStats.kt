@@ -1,4 +1,4 @@
-package com.montrajet.data
+package net.metroboulot.data
 
 data class AppStats(
     val totalManualSurveillances: Int = 0,

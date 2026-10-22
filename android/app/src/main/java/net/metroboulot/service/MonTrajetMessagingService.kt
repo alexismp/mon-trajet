@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet.service
+package net.metroboulot.service
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -28,13 +28,13 @@ import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.montrajet.MainActivity
-import com.montrajet.R
-import com.montrajet.data.AlertRepository
-import com.montrajet.data.ScheduleRepository
-import com.montrajet.data.TrainAlert
-import com.montrajet.location.DestinationArrivalReceiver
-import com.montrajet.location.LocationHelper
+import net.metroboulot.MainActivity
+import net.metroboulot.R
+import net.metroboulot.data.AlertRepository
+import net.metroboulot.data.ScheduleRepository
+import net.metroboulot.data.TrainAlert
+import net.metroboulot.location.DestinationArrivalReceiver
+import net.metroboulot.location.LocationHelper
 
 class MonTrajetMessagingService : FirebaseMessagingService() {
 
@@ -65,20 +65,48 @@ class MonTrajetMessagingService : FirebaseMessagingService() {
             return
         }
 
-        // 2. Détection de géolocalisation : si l'utilisateur est arrivé à destination,
-        // suspendre immédiatement la surveillance pour ce trajet et ignorer la notification !
+        val data = remoteMessage.data
+        val alertDirection = data["direction_code"]
         val activeDirection = schedule.getActiveDirectionCode()
-        if (schedule.autoStopAtDestination && activeDirection != null) {
-            if (LocationHelper.isArrivedAtDestination(applicationContext, activeDirection)) {
-                Log.i(TAG, "Arrivée à destination ($activeDirection) détectée par géolocalisation ! Mise en pause immédiate.")
-                scheduleRepository.pauseUntilNextCommute(source = "fcm_arrival_check")
-                LocationHelper.unregisterDestinationProximityAlert(applicationContext)
-                sendBroadcast(Intent("com.montrajet.widget.ACTION_REFRESH").setPackage(packageName))
+
+        // 2. Filtrage strict de la direction : ignorer si l'alerte concerne le sens opposé au créneau actif
+        if (activeDirection != null && !alertDirection.isNullOrBlank() && alertDirection != "AUTO" && alertDirection != activeDirection) {
+            Log.i(TAG, "Message FCM ignoré : direction de l'alerte ($alertDirection) != direction surveillée ($activeDirection).")
+            return
+        }
+
+        // 3. Vérification de la position géographique réelle de l'utilisateur :
+        //    - Si l'utilisateur est déjà arrivé à destination (ex: déjà à Paris pour une alerte TO_PARIS),
+        //      on suspend la surveillance jusqu'au prochain créneau et on ignore la notification.
+        //    - Si la position connue indique clairement que l'utilisateur se trouve du côté opposé
+        //      au point de départ de l'alerte, on ignore également la notification.
+        val directionToVerify = alertDirection ?: activeDirection
+        if (directionToVerify != null) {
+            if (LocationHelper.isArrivedAtDestination(applicationContext, directionToVerify)) {
+                Log.i(TAG, "Utilisateur déjà à destination pour $directionToVerify ! Notification ignorée.")
+                if (schedule.autoStopAtDestination) {
+                    scheduleRepository.pauseUntilNextCommute(source = "fcm_arrival_check")
+                    LocationHelper.unregisterDestinationProximityAlert(applicationContext)
+                    sendBroadcast(Intent("net.metroboulot.widget.ACTION_REFRESH").setPackage(packageName))
+                }
+                return
+            }
+
+            val locationDetection = LocationHelper.detectCommuteDirection(applicationContext)
+            if (!locationDetection.isEstimated && locationDetection.direction.code != directionToVerify) {
+                Log.i(
+                    TAG,
+                    "Message FCM ignoré : position actuelle (${locationDetection.locationLabel} -> ${locationDetection.direction.code}) incompatible avec l'alerte ($directionToVerify)."
+                )
+                if (schedule.autoStopAtDestination && activeDirection == directionToVerify) {
+                    scheduleRepository.pauseUntilNextCommute(source = "fcm_wrong_direction_location")
+                    LocationHelper.unregisterDestinationProximityAlert(applicationContext)
+                    sendBroadcast(Intent("net.metroboulot.widget.ACTION_REFRESH").setPackage(packageName))
+                }
                 return
             }
         }
 
-        val data = remoteMessage.data
         val title = remoteMessage.notification?.title ?: data["title"] ?: "⚠️ Train Annulé"
         val body = remoteMessage.notification?.body ?: data["body"] ?: "Un train Ligne N vers Montparnasse est supprimé."
 
@@ -98,7 +126,7 @@ class MonTrajetMessagingService : FirebaseMessagingService() {
             status = status
         )
         AlertRepository.getInstance(applicationContext).addAlert(alert)
-        sendBroadcast(Intent("com.montrajet.widget.ACTION_REFRESH").setPackage(packageName))
+        sendBroadcast(Intent("net.metroboulot.widget.ACTION_REFRESH").setPackage(packageName))
 
         // 3. Affichage de la notification système haute priorité avec bouton d'action
         showSystemNotification(title, body)

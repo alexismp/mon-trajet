@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet
+package net.metroboulot
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -40,16 +40,16 @@ import androidx.compose.runtime.setValue
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessaging
-import com.montrajet.data.AlertRepository
-import com.montrajet.data.DeparturesRepository
-import com.montrajet.data.ScheduleRepository
-import com.montrajet.data.StatsRepository
-import com.montrajet.data.TrainAlert
-import com.montrajet.location.LocationHelper
-import com.montrajet.service.MonTrajetMessagingService
-import com.montrajet.ui.HomeScreen
-import com.montrajet.ui.SettingsSheet
-import com.montrajet.ui.theme.MonTrajetTheme
+import net.metroboulot.data.AlertRepository
+import net.metroboulot.data.DeparturesRepository
+import net.metroboulot.data.ScheduleRepository
+import net.metroboulot.data.StatsRepository
+import net.metroboulot.data.TrainAlert
+import net.metroboulot.location.LocationHelper
+import net.metroboulot.service.MonTrajetMessagingService
+import net.metroboulot.ui.HomeScreen
+import net.metroboulot.ui.SettingsSheet
+import net.metroboulot.ui.theme.MonTrajetTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
 
         if (fineGranted || coarseGranted) {
             Log.d(TAG, "Permission localisation accordée pour détection du sens de trajet")
-            com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
+            net.metroboulot.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
         }
         if (!notifGranted) {
             Toast.makeText(
@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
                         scheduleRepository.triggerQuickMonitoring(duration, direction)
                         LocationHelper.registerDestinationProximityAlert(applicationContext, direction)
                         departuresRepository.refresh(force = true)
-                        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
+                        net.metroboulot.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
                         val dirLabel = if (direction == "TO_PARIS") "Meudon ➔ Paris" else "Paris ➔ Meudon"
                         Toast.makeText(
                             this@MainActivity,
@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
                     onCancelQuickMonitoring = {
                         scheduleRepository.pauseUntilNextCommute(source = "app_cancel")
                         LocationHelper.unregisterDestinationProximityAlert(applicationContext)
-                        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
+                        net.metroboulot.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
                         Toast.makeText(
                             this@MainActivity,
                             "Surveillance mise en pause jusqu'au prochain trajet",
@@ -143,7 +143,7 @@ class MainActivity : ComponentActivity() {
                     onTrainTaken = {
                         scheduleRepository.pauseUntilNextCommute(source = "app_train_taken")
                         LocationHelper.unregisterDestinationProximityAlert(applicationContext)
-                        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
+                        net.metroboulot.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
                         val remainingText = scheduleRepository.schedule.value.getPausedRemainingText() ?: "votre prochain trajet"
                         Toast.makeText(
                             this@MainActivity,
@@ -153,7 +153,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onResumeSurveillance = {
                         scheduleRepository.resumeNow()
-                        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
+                        net.metroboulot.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
                         departuresRepository.refresh(force = true)
                         Toast.makeText(this@MainActivity, "Surveillance reprise", Toast.LENGTH_SHORT).show()
                     }
@@ -196,7 +196,7 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(EXTRA_OPEN_DEPARTURES, false) == true) {
             val isMonitoringActive = scheduleRepository.schedule.value.isMonitoringActiveNow()
             departuresRepository.refresh(force = isMonitoringActive)
-            com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
+            net.metroboulot.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
         }
     }
 
@@ -228,7 +228,7 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "MainActivity onResume (surveillance active: $isMonitoringActive)")
         departuresRepository.refresh(force = isMonitoringActive)
         statsRepository.refresh()
-        com.montrajet.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
+        net.metroboulot.widget.MonTrajetWidgetProvider.updateAllWidgets(applicationContext)
     }
 
     private fun checkAppPermissions() {

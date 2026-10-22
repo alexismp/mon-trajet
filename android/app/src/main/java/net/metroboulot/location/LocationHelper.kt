@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet.location
+package net.metroboulot.location
 
 import android.Manifest
 import android.app.PendingIntent
@@ -198,9 +198,9 @@ object LocationHelper {
      */
     fun isArrivedAtDestination(context: Context, directionCode: String): Boolean {
         val location = getLastKnownLocation(context) ?: return false
-        // Tolérance d'âge de la position : maximum 45 minutes
+        // Tolérance d'âge de la position : maximum 8 heures (couvre une journée de travail ou une nuit sur place)
         val locationAgeMillis = System.currentTimeMillis() - location.time
-        if (locationAgeMillis > 45 * 60 * 1000L) {
+        if (locationAgeMillis > 8 * 60 * 60 * 1000L) {
             Log.d(TAG, "Position trop ancienne (${locationAgeMillis / 60000}m) pour valider l'arrivée.")
             return false
         }

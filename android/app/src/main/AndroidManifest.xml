@@ -35,14 +35,14 @@
             </intent-filter>
         </service>
 
-        <!-- Widget Android Mon trajet -->
+        <!-- Widget Android Metro Boulot -->
         <receiver
             android:name=".widget.MonTrajetWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.montrajet.widget.ACTION_TOGGLE_MONITORING" />
-                <action android:name="com.montrajet.widget.ACTION_REFRESH" />
+                <action android:name="net.metroboulot.widget.ACTION_TOGGLE_MONITORING" />
+                <action android:name="net.metroboulot.widget.ACTION_REFRESH" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
             <meta-data
@@ -55,8 +55,8 @@
             android:name=".location.DestinationArrivalReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.montrajet.location.ACTION_DESTINATION_ARRIVED" />
-                <action android:name="com.montrajet.location.ACTION_TRAIN_TAKEN" />
+                <action android:name="net.metroboulot.location.ACTION_DESTINATION_ARRIVED" />
+                <action android:name="net.metroboulot.location.ACTION_TRAIN_TAKEN" />
             </intent-filter>
         </receiver>
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet.location
+package net.metroboulot.location
 
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -25,8 +25,8 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
-import com.montrajet.data.ScheduleRepository
-import com.montrajet.widget.MonTrajetWidgetProvider
+import net.metroboulot.data.ScheduleRepository
+import net.metroboulot.widget.MonTrajetWidgetProvider
 
 /**
  * Récepteur d'événements pour l'arrivée à destination par géolocalisation
@@ -111,8 +111,8 @@ class DestinationArrivalReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "DestinationArrival"
-        const val ACTION_DESTINATION_ARRIVED = "com.montrajet.location.ACTION_DESTINATION_ARRIVED"
-        const val ACTION_TRAIN_TAKEN = "com.montrajet.location.ACTION_TRAIN_TAKEN"
+        const val ACTION_DESTINATION_ARRIVED = "net.metroboulot.location.ACTION_DESTINATION_ARRIVED"
+        const val ACTION_TRAIN_TAKEN = "net.metroboulot.location.ACTION_TRAIN_TAKEN"
         const val EXTRA_DIRECTION = "extra_direction"
     }
 }

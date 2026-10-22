@@ -39,7 +39,7 @@ if ! gcloud projects describe "${PROJECT_ID}" >/dev/null 2>&1; then
 fi
 
 echo "=========================================================="
-echo " 🚀 Déploiement de Mon trajet (Cloud Run functions) sur GCP"
+echo " 🚀 Déploiement de Metro Boulot (Cloud Run functions) sur GCP"
 echo "=========================================================="
 echo "Projet GCP : ${PROJECT_ID} (Compte: ${CLOUDSDK_CORE_ACCOUNT:-$(gcloud config get-value account 2>/dev/null)})"
 echo "Région     : ${REGION}"
@@ -81,7 +81,7 @@ SCHEDULER_SA="${SCHEDULER_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 echo "🔐 Configuration du compte de service pour Cloud Scheduler (${SCHEDULER_SA})..."
 if ! gcloud iam service-accounts describe "${SCHEDULER_SA}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
     gcloud iam service-accounts create "${SCHEDULER_SA_NAME}" \
-        --display-name="MonTrajet Cloud Scheduler Invoker" \
+        --display-name="MetroBoulot Cloud Scheduler Invoker" \
         --project="${PROJECT_ID}" || true
 fi
 

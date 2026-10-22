@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet.ui
+package net.metroboulot.ui
 
 import android.app.TimePickerDialog
 import androidx.compose.foundation.background
@@ -45,10 +45,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.montrajet.data.AppStats
-import com.montrajet.data.ScheduleConfig
-import com.montrajet.data.TrainAlert
-import com.montrajet.ui.theme.*
+import net.metroboulot.data.AppStats
+import net.metroboulot.data.ScheduleConfig
+import net.metroboulot.data.TrainAlert
+import net.metroboulot.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

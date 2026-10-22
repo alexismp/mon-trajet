@@ -29,5 +29,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MonTrajet"
+rootProject.name = "MetroBoulot"
 include(":app")

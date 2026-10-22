@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet.ui.theme
+package net.metroboulot.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography

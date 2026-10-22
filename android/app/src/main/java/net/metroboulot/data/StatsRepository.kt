@@ -1,4 +1,4 @@
-package com.montrajet.data
+package net.metroboulot.data
 
 import android.content.Context
 import android.content.SharedPreferences

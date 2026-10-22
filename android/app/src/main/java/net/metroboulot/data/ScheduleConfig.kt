@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet.data
+package net.metroboulot.data
 
 import java.text.SimpleDateFormat
 import java.util.Calendar

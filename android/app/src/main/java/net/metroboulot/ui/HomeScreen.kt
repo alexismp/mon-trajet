@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.montrajet.ui
+package net.metroboulot.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -43,12 +43,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.montrajet.data.DepartureStatus
-import com.montrajet.data.ScheduleConfig
-import com.montrajet.data.TrainDeparture
-import com.montrajet.location.CommuteDirection
-import com.montrajet.location.LocationHelper
-import com.montrajet.ui.theme.*
+import net.metroboulot.data.DepartureStatus
+import net.metroboulot.data.ScheduleConfig
+import net.metroboulot.data.TrainDeparture
+import net.metroboulot.location.CommuteDirection
+import net.metroboulot.location.LocationHelper
+import net.metroboulot.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,7 +125,7 @@ fun HomeScreen(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Mon trajet",
+                            text = "Metro Boulot",
                             fontWeight = FontWeight.Bold,
                             fontSize = 22.sp,
                             color = TextPrimary

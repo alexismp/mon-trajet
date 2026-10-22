@@ -1,2 +1,2 @@
-# Règles Proguard pour Mon trajet
+# Règles Proguard pour Metro Boulot
 -keepattributes *Annotation*
